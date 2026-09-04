@@ -40,7 +40,19 @@ exports.getLostItems = async (req, res, next) => {
       .limit(Number(limit));
 
     const total = await LostItem.countDocuments(filter);
-    res.status(200).json({ success: true, count: items.length, total, items });
+
+    // Never send a reporter's phone/contact info to random browsers. Only the
+    // reporter themselves or staff (admin/security) get to see it directly —
+    // everyone else should talk through the in-app chat (see /api/chats).
+    const safeItems = items.map((item) => {
+      const obj = item.toObject();
+      const isOwner = String(item.reportedBy._id) === String(req.user._id);
+      const isStaff = ["admin", "security"].includes(req.user.role);
+      if (!isOwner && !isStaff) delete obj.contact;
+      return obj;
+    });
+
+    res.status(200).json({ success: true, count: items.length, total, items: safeItems });
   } catch (err) {
     next(err);
   }
@@ -51,7 +63,13 @@ exports.getLostItem = async (req, res, next) => {
   try {
     const item = await LostItem.findById(req.params.id).populate("reportedBy", "name email");
     if (!item) return res.status(404).json({ success: false, message: "Lost item report not found." });
-    res.status(200).json({ success: true, item });
+
+    const obj = item.toObject();
+    const isOwner = String(item.reportedBy._id) === String(req.user._id);
+    const isStaff = ["admin", "security"].includes(req.user.role);
+    if (!isOwner && !isStaff) delete obj.contact;
+
+    res.status(200).json({ success: true, item: obj });
   } catch (err) {
     next(err);
   }

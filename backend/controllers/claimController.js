@@ -39,7 +39,9 @@ exports.createClaim = async (req, res, next) => {
 // @route GET /api/claims/mine
 exports.getMyClaims = async (req, res, next) => {
   try {
-    const claims = await Claim.find({ user: req.user._id }).populate("item").sort({ createdAt: -1 });
+    const claims = await Claim.find({ user: req.user._id })
+      .populate({ path: "item", populate: { path: "reportedBy", select: "name" } })
+      .sort({ createdAt: -1 });
     res.status(200).json({ success: true, claims });
   } catch (err) {
     next(err);

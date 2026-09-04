@@ -7,9 +7,9 @@ const ctrl = require("../controllers/lostItemController");
 
 const router = express.Router();
 
-router.get("/", ctrl.getLostItems);
+router.get("/", protect, ctrl.getLostItems);
 router.get("/mine", protect, ctrl.getMyLostItems);
-router.get("/:id", ctrl.getLostItem);
+router.get("/:id", protect, ctrl.getLostItem);
 
 router.post(
   "/",

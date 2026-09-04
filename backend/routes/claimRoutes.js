@@ -21,11 +21,17 @@ router.post(
 );
 
 router.get("/mine", protect, ctrl.getMyClaims);
+router.get("/received", protect, ctrl.getReceivedClaims);
 router.get("/", protect, authorize("admin", "security"), ctrl.getAllClaims);
+// NOTE: authorize("admin","security") intentionally NOT applied here.
+// decideClaim itself allows admin/security OR the finder who reported the
+// item (see controllers/claimController.js -> isAdmin / isFinder check).
+// Gating this route to admin/security only would make that finder branch
+// unreachable and break the "finder approves/rejects claims on their own
+// found item" flow.
 router.patch(
   "/:id/decision",
   protect,
-  authorize("admin", "security"),
   [body("decision").isIn(["Approved", "Rejected", "Under Review"])],
   validate,
   ctrl.decideClaim

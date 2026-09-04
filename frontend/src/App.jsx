@@ -14,6 +14,7 @@ import { loginUser, registerUser, logoutUser, getCurrentUser, googleLogin } from
 import { getLostItems, getFoundItems, createLostItem, createFoundItem } from "./api/items";
 import { getAllMatches } from "./api/matches";
 import { createClaim, getMyClaims, getAllClaims, decideClaim, getReceivedClaims } from "./api/claims";
+import { getMessages, sendMessage } from "./api/chats";
 import { createReview, getFinderReviews } from "./api/reviews";
 import { getMyNotifications, markNotificationRead, markAllNotificationsRead } from "./api/notifications";
 
@@ -1249,6 +1250,114 @@ function AdminClaims({ t }) {
 }
 
 // ---------- My Claims (student side, with reviews) ----------
+function ChatModal({ t, claimId, itemName, otherPartyName, user, onClose }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const bottomRef = React.useRef(null);
+
+  const load = () => {
+    getMessages(claimId)
+      .then((data) => setMessages(data.messages || []))
+      .catch((err) => setError(err.response?.data?.message || "Could not load messages."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // Poll every 4s while the chat is open so both sides see new messages
+    // without needing a full websocket setup.
+    const interval = setInterval(load, 4000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claimId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await sendMessage(claimId, text.trim());
+      setText("");
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not send message.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className={`w-full max-w-md rounded-xl border ${t.border} ${t.cardBg} flex flex-col h-[70vh]`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`flex items-center justify-between p-4 border-b ${t.border}`}>
+          <div>
+            <div className="font-semibold text-sm">{itemName}</div>
+            <div className={`text-xs ${t.textMuted}`}>
+              Chat with {otherPartyName || "the other person"} · numbers stay private, everything happens here
+            </div>
+          </div>
+          <button onClick={onClose} className={`text-sm ${t.textMuted} hover:opacity-70`}>✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {loading && <p className={`text-sm ${t.textMuted}`}>Loading conversation...</p>}
+          {!loading && messages.length === 0 && (
+            <p className={`text-sm ${t.textMuted}`}>No messages yet. Say hello and sort out the handover here — no need to share your phone number.</p>
+          )}
+          {messages.map((m) => {
+            const fromMe = String(m.sender) === String(user._id);
+            return (
+              <div key={m._id} className={`flex ${fromMe ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+                    fromMe ? "bg-indigo-600 text-white" : `${t.border} border ${t.cardBg}`
+                  }`}
+                >
+                  {m.text}
+                  <div className={`text-[10px] mt-1 opacity-70`}>
+                    {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={bottomRef} />
+        </div>
+
+        {error && <div className="text-xs text-rose-500 px-4 pb-1">{error}</div>}
+
+        <form onSubmit={handleSend} className={`p-3 border-t ${t.border} flex gap-2`}>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Type a message..."
+            maxLength={2000}
+            className={`flex-1 rounded-lg border ${t.border} ${t.cardBg} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+          />
+          <button
+            type="submit"
+            disabled={sending || !text.trim()}
+            className="bg-indigo-600 text-white text-sm font-semibold rounded-lg px-4 py-2 disabled:opacity-50"
+          >
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function MyClaims({ t, user }) {
   const [tab, setTab] = useState("made"); // "made" | "received"
   const [claims, setClaims] = useState([]);
@@ -1256,6 +1365,7 @@ function MyClaims({ t, user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reviewFor, setReviewFor] = useState(null); // claim being reviewed
+  const [chatFor, setChatFor] = useState(null); // claim being chatted about
   const [busyId, setBusyId] = useState(null);
 
   const load = () => {
@@ -1312,6 +1422,10 @@ function MyClaims({ t, user }) {
               </div>
               <div className="flex items-center gap-3">
                 <StatusPill status={c.status} />
+                <button onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.item?.reportedBy?.name })}
+                  className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
+                  💬 Chat
+                </button>
                 {c.status === "Approved" && (
                   <button onClick={() => setReviewFor(c)} className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
                     Leave a review
@@ -1336,6 +1450,10 @@ function MyClaims({ t, user }) {
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusPill status={c.status} />
+                  <button onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.user?.name })}
+                    className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
+                    💬 Chat
+                  </button>
                   {(c.status === "Pending" || c.status === "Under Review") && (
                     <>
                       <button disabled={busyId === c._id} onClick={() => handleDecision(c._id, "Approved")}
@@ -1362,6 +1480,16 @@ function MyClaims({ t, user }) {
           claim={reviewFor}
           onClose={() => setReviewFor(null)}
           onSubmitted={() => { setReviewFor(null); load(); }}
+        />
+      )}
+      {chatFor && (
+        <ChatModal
+          t={t}
+          user={user}
+          claimId={chatFor.id}
+          itemName={chatFor.itemName}
+          otherPartyName={chatFor.otherName}
+          onClose={() => setChatFor(null)}
         />
       )}
     </div>
