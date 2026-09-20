@@ -1705,7 +1705,11 @@ export default function App() {
       .catch(() => {})
       .finally(() => setCheckingSession(false));
     // Agar kahin bhi API 401 de (session expire), auto-logout kar do
-    const onExpire = () => { setUser(null); setPage("landing"); };
+    const onExpire = () => {
+      localStorage.removeItem("token");
+      setUser(null);
+      setPage("landing");
+    };
     window.addEventListener("auth-expired", onExpire);
     return () => window.removeEventListener("auth-expired", onExpire);
   }, []);
