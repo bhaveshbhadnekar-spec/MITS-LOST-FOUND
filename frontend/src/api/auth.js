@@ -23,3 +23,12 @@ export async function googleLogin(idToken) {
   const res = await api.post("/auth/google", { idToken });
   return res.data;
 }
+export async function forgotPassword(email) {
+  const res = await api.post("/auth/forgot-password", { email });
+  return res.data;
+}
+
+export async function resetPassword(token, password) {
+  const res = await api.post(`/auth/reset-password/${token}`, { password });
+  return res.data;
+}

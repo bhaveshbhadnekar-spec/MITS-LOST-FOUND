@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   Search, Bell, User, Menu, X, ArrowRight, MapPin, Calendar, ShieldCheck,
   Package, CheckCircle2, Clock, AlertCircle, LayoutDashboard, FileText,
-  PlusCircle, Settings, LogOut, Users, BarChart3, FileWarning, Download,
+  PlusCircle, Settings, LogOut, Users, BarChart3, FileWarning,
   Mail, Github, Linkedin, Moon, Sun, Filter, ChevronRight, Sparkles,
   KeyRound, GraduationCap, Building2, TrendingUp, Star
 } from "lucide-react";
@@ -10,13 +10,14 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, PieChart, Pie, Cell
 } from "recharts";
-import { loginUser, registerUser, logoutUser, getCurrentUser, googleLogin } from "./api/auth";
+import { logoutUser, getCurrentUser, googleLogin, resetPassword } from "./api/auth";
 import { getLostItems, getFoundItems, createLostItem, createFoundItem } from "./api/items";
 import { getAllMatches } from "./api/matches";
 import { createClaim, getMyClaims, getAllClaims, decideClaim, getReceivedClaims } from "./api/claims";
 import { getMessages, sendMessage } from "./api/chats";
 import { createReview, getFinderReviews } from "./api/reviews";
 import { getMyNotifications, markNotificationRead, markAllNotificationsRead } from "./api/notifications";
+import { getUsers, suspendUser, reinstateUser, getAdminAnalytics, deleteSpamLostItem, deleteSpamFoundItem } from "./api/admin";
 
 // ---------- Static config (not dummy data — these are real dropdown options) ----------
 const CATEGORIES = ["Mobile", "Laptop", "Wallet", "ID Card", "Keys", "Books", "Accessories", "Documents", "Others"];
@@ -141,62 +142,50 @@ function Landing({ t, dark, goto }) {
 
 // ---------- Login Page ----------
 function Login({ t, dark, setDark, goto, login }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [name, setName] = useState("");
-  const [department, setDepartment] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const googleBtnRef = React.useRef(null);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const data = await loginUser({ email, password });
-      login(data.user);
-    } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const data = await registerUser({ name, email, password, department });
-      login(data.user);
-    } catch (err) {
-      setError(err.response?.data?.message || "Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (!window.google || !googleBtnRef.current) return;
-    window.google.accounts.id.initialize({
-      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      callback: async (response) => {
-        try {
-          const data = await googleLogin(response.credential);
-          login(data.user);
-        } catch (err) {
-          setError(err.response?.data?.message || "Google sign-in failed.");
-        }
-      },
-    });
-    window.google.accounts.id.renderButton(googleBtnRef.current, {
-      theme: dark ? "filled_black" : "outline",
-      size: "large",
-      width: 360,
-      text: "continue_with",
-    });
+    let cancelled = false;
+
+    const setup = () => {
+      if (cancelled || !window.google || !googleBtnRef.current) return false;
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: async (response) => {
+          try {
+            const data = await googleLogin(response.credential);
+            login(data.user);
+          } catch (err) {
+            setError(err.response?.data?.message || "Google sign-in failed.");
+          }
+        },
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: dark ? "filled_black" : "outline",
+        size: "large",
+        width: 360,
+        text: "continue_with",
+      });
+      return true;
+    };
+
+    // The Google Identity Services script (accounts.google.com/gsi/client) is
+    // loaded with async/defer in index.html, so it may not be ready yet when
+    // this component mounts. Poll briefly until it is, instead of silently
+    // giving up and leaving no sign-in button at all.
+    if (!setup()) {
+      const interval = setInterval(() => {
+        if (setup()) clearInterval(interval);
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+      };
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [dark]);
 
   return (
@@ -258,83 +247,13 @@ function Login({ t, dark, setDark, goto, login }) {
             <div className="w-14 h-14 rounded-2xl bg-white p-1.5 mb-4 overflow-hidden">
               <img src="/logo.png" alt="MITS logo" className="w-full h-full object-contain" />
             </div>
-            <h2 className="text-xl font-bold">{mode === "login" ? "Sign in to MITS L&F" : "Create your account"}</h2>
-            <p className={`text-sm ${t.textMuted} mt-1`}>
-              {mode === "login" ? "Access your lost & found dashboard" : "Register with your MITS email to get started"}
-            </p>
+            <h2 className="text-xl font-bold">Sign in to MITS L&F</h2>
+            <p className={`text-sm ${t.textMuted} mt-1`}>Access your lost & found dashboard</p>
           </div>
 
-          <div className={`flex rounded-lg border ${t.border} p-1 mb-5`}>
-            <button
-              onClick={() => { setMode("login"); setError(""); }}
-              className={`flex-1 text-sm font-medium rounded-md py-1.5 transition-colors ${mode === "login" ? "bg-indigo-700 text-white" : t.textMuted}`}
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => { setMode("register"); setError(""); }}
-              className={`flex-1 text-sm font-medium rounded-md py-1.5 transition-colors ${mode === "register" ? "bg-indigo-700 text-white" : t.textMuted}`}
-            >
-              Create account
-            </button>
-          </div>
+          {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 mb-4">{error}</div>}
 
-          <div ref={googleBtnRef} className="mb-4 flex justify-center" />
-
-          <div className="flex items-center gap-3 my-4">
-            <div className={`h-px flex-1 ${t.border} border-t`} />
-            <span className={`text-xs ${t.textMuted}`}>or use MITS email</span>
-            <div className={`h-px flex-1 ${t.border} border-t`} />
-          </div>
-
-          {mode === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-3">
-              {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
-              <div>
-                <label className="text-sm font-medium">MITS Email</label>
-                <input required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@mitsgwalior.ac.in"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Password</label>
-                <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <div className="flex justify-end">
-                <button type="button" className="text-xs text-indigo-600 font-medium hover:underline">Forgot password?</button>
-              </div>
-              <button type="submit" disabled={loading} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 transition-colors disabled:opacity-60">
-                {loading ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleRegister} className="space-y-3">
-              {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
-              <div>
-                <label className="text-sm font-medium">Full Name</label>
-                <input required minLength={2} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">MITS Email</label>
-                <input required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="yourname@mitsgwalior.ac.in"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Department (optional)</label>
-                <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. CSE, 3rd Year"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Password</label>
-                <input required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters"
-                  className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
-              </div>
-              <button type="submit" disabled={loading} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 transition-colors disabled:opacity-60">
-                {loading ? "Creating account..." : "Create account"}
-              </button>
-            </form>
-          )}
+          <div ref={googleBtnRef} className="mb-2 flex justify-center" />
 
           <div className={`flex items-start gap-2.5 mt-5 rounded-lg ${t.hover} p-3`}>
             <ShieldCheck size={16} className="text-emerald-600 mt-0.5 shrink-0" />
@@ -606,7 +525,7 @@ function ReportForm({ t, mode }) {
     setSubmitting(true);
     try {
       const res = isLost ? await createLostItem(form, imageFile) : await createFoundItem(form, imageFile);
-      setReportId(res.data?._id?.slice(-6).toUpperCase() || "");
+      setReportId(res.item?._id?.slice(-6).toUpperCase() || "");
       setSubmitted(true);
     } catch (err) {
       setError(err.response?.data?.message || "Submission failed. Please check the form and try again.");
@@ -1111,15 +1030,30 @@ function SettingsPage({ t, dark, setDark }) {
 
 // ---------- Admin ----------
 function AdminDashboard({ t, dark }) {
-  // TODO: connect to real backend admin stats/reports API when available
-  const reports = [];
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([getLostItems({ limit: 10 }), getFoundItems({ limit: 10 })])
+      .then(([lostRes, foundRes]) => {
+        const lost = (lostRes.items || []).map((it) => ({ id: it._id, name: it.itemName, type: "lost", status: it.status, by: it.reportedBy?.name || "—", date: it.dateLost }));
+        const found = (foundRes.items || []).map((it) => ({ id: it._id, name: it.itemName, type: "found", status: it.status, by: it.reportedBy?.name || "—", date: it.dateFound }));
+        const combined = [...lost, ...found].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+        setReports(combined);
+      })
+      .catch((err) => setError(err.response?.data?.message || "Could not load recent reports."))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div>
       <PageHeader t={t} title="Admin Dashboard" subtitle="Campus-wide lost & found oversight" />
+      {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 mb-4">{error}</div>}
       <div className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Recent Reports</h3>
-          <button className={`text-sm flex items-center gap-1.5 border ${t.border} ${t.hover} rounded-lg px-3 py-1.5`}><Download size={14} /> Export</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1129,12 +1063,13 @@ function AdminDashboard({ t, dark }) {
               </tr>
             </thead>
             <tbody>
-              {reports.length === 0 && (
+              {loading && <tr><td colSpan={5} className={`py-6 text-center ${t.textMuted}`}>Loading...</td></tr>}
+              {!loading && reports.length === 0 && (
                 <tr><td colSpan={5} className={`py-6 text-center ${t.textMuted}`}>No reports yet.</td></tr>
               )}
               {reports.map((it) => (
                 <tr key={it.id} className={`border-b ${t.border} last:border-0`}>
-                  <td className="py-2.5 font-mono text-xs">{it.id}</td>
+                  <td className="py-2.5 font-mono text-xs">{it.id.slice(-8).toUpperCase()}</td>
                   <td className="py-2.5">{it.name}</td>
                   <td className="py-2.5 capitalize">{it.type}</td>
                   <td className="py-2.5"><StatusPill status={it.status} /></td>
@@ -1150,11 +1085,37 @@ function AdminDashboard({ t, dark }) {
 }
 
 function AdminUsers({ t }) {
-  // TODO: connect to real backend user list API (e.g. GET /api/admin/users) when ready
-  const users = [];
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    getUsers()
+      .then((res) => setUsers(res.users || []))
+      .catch((err) => setError(err.response?.data?.message || "Could not load users."))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const toggleSuspend = async (u) => {
+    setBusyId(u._id);
+    try {
+      if (u.isSuspended) await reinstateUser(u._id);
+      else await suspendUser(u._id, "Policy violation");
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not update user.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div>
       <PageHeader t={t} title="User Management" subtitle="View, verify, and moderate portal users" />
+      {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 mb-4">{error}</div>}
       <div className={`rounded-xl border ${t.border} ${t.cardBg} overflow-x-auto`}>
         <table className="w-full text-sm">
           <thead>
@@ -1163,16 +1124,25 @@ function AdminUsers({ t }) {
             </tr>
           </thead>
           <tbody>
-            {users.length === 0 && (
+            {loading && <tr><td colSpan={5} className={`p-6 text-center ${t.textMuted}`}>Loading...</td></tr>}
+            {!loading && users.length === 0 && (
               <tr><td colSpan={5} className={`p-6 text-center ${t.textMuted}`}>No users found.</td></tr>
             )}
             {users.map((u) => (
-              <tr key={u.email} className={`border-b ${t.border} last:border-0`}>
+              <tr key={u._id} className={`border-b ${t.border} last:border-0`}>
                 <td className="p-4 font-medium">{u.name}</td>
                 <td className={`p-4 ${t.textMuted}`}>{u.email}</td>
                 <td className="p-4">{u.role}</td>
-                <td className="p-4"><StatusPill status={u.status === "Active" ? "Recovered" : "Rejected"} /></td>
-                <td className="p-4"><button className="text-rose-500 text-xs font-semibold hover:underline">Suspend</button></td>
+                <td className="p-4"><StatusPill status={u.isSuspended ? "Rejected" : "Recovered"} /></td>
+                <td className="p-4">
+                  <button
+                    disabled={busyId === u._id}
+                    onClick={() => toggleSuspend(u)}
+                    className={`text-xs font-semibold hover:underline disabled:opacity-50 ${u.isSuspended ? "text-emerald-600" : "text-rose-500"}`}
+                  >
+                    {u.isSuspended ? "Reinstate" : "Suspend"}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1550,12 +1520,49 @@ function ReviewFormModal({ t, claim, onClose, onSubmitted }) {
 }
 
 function AdminAnalytics({ t, dark }) {
-  // TODO: connect to real backend analytics API when available
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getAdminAnalytics()
+      .then((res) => setAnalytics(res.analytics))
+      .catch((err) => setError(err.response?.data?.message || "Could not load analytics."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className={`text-sm ${t.textMuted}`}>Loading analytics...</p>;
+  if (error) return <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>;
+
+  const pieData = [
+    { name: "Active", value: (analytics?.activeCases || 0) },
+    { name: "Recovered", value: (analytics?.recoveredItems || 0) },
+  ];
+  const COLORS = ["#f59e0b", "#059669"];
+
   return (
     <div>
       <PageHeader t={t} title="Analytics" subtitle="Security logs and campus-wide trends" />
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <Widget t={t} label="Total Users" value={analytics?.totalUsers ?? 0} icon={Users} tint="bg-indigo-600" />
+        <Widget t={t} label="Total Reports" value={analytics?.totalReports ?? 0} icon={FileText} tint="bg-sky-600" />
+        <Widget t={t} label="Recovery Rate" value={`${analytics?.recoveryRate ?? 0}%`} icon={TrendingUp} tint="bg-emerald-600" />
+        <Widget t={t} label="Pending Claims" value={analytics?.pendingClaims ?? 0} icon={ShieldCheck} tint="bg-amber-500" />
+      </div>
       <div className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
-        <p className={`text-sm ${t.textMuted}`}>Analytics will appear here once connected to the backend reporting API.</p>
+        <h3 className="font-semibold mb-4">Active vs Recovered Items</h3>
+        <div style={{ width: "100%", height: 260 }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ background: dark ? "#1e293b" : "#fff", border: "none", borderRadius: 8 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
@@ -1597,6 +1604,74 @@ function DevelopersPage({ t }) {
   );
 }
 
+// ---------- Reset Password (landed on via the emailed link: /reset-password/:token) ----------
+function ResetPasswordPage({ t, dark, setDark, token, goto }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (password.length < 8) return setError("Password must be at least 8 characters.");
+    if (password !== confirm) return setError("Passwords do not match.");
+    setSubmitting(true);
+    try {
+      await resetPassword(token, password);
+      setDone(true);
+      // Clean the token out of the URL so a refresh doesn't resubmit it.
+      window.history.replaceState({}, "", "/");
+    } catch (err) {
+      setError(err.response?.data?.message || "This reset link is invalid or has expired.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={`min-h-screen ${t.bg} ${t.text} flex items-center justify-center p-4`}>
+      <div className={`w-full max-w-md rounded-2xl border ${t.border} ${t.cardBg} p-8`}>
+        <div className="flex flex-col items-center text-center mb-6">
+          <div className="w-14 h-14 rounded-2xl bg-white p-1.5 mb-4 overflow-hidden">
+            <img src="/logo.png" alt="MITS logo" className="w-full h-full object-contain" />
+          </div>
+          <h2 className="text-xl font-bold">Set a new password</h2>
+        </div>
+
+        {done ? (
+          <div className="text-center">
+            <CheckCircle2 className="mx-auto text-emerald-600 mb-3" size={36} />
+            <p className={`text-sm ${t.textMuted} mb-5`}>Your password has been reset. You can now sign in.</p>
+            <button onClick={() => goto("login")} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5">
+              Go to sign in
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
+            <div>
+              <label className="text-sm font-medium">New password</label>
+              <input required type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters" className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Confirm new password</label>
+              <input required type="password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Re-enter password" className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            </div>
+            <button type="submit" disabled={submitting} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 disabled:opacity-60">
+              {submitting ? "Resetting..." : "Reset password"}
+            </button>
+          </form>
+        )}
+        <button onClick={() => goto("landing")} className={`w-full text-center text-xs mt-6 ${t.textMuted} hover:text-indigo-600`}>← Back to Home</button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Root App ----------
 export default function App() {
   const [dark, setDark] = useState(false);
@@ -1604,6 +1679,7 @@ export default function App() {
   const [user, setUser] = useState(null); // { id, name, email, role, profileImage }
   const [checkingSession, setCheckingSession] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [resetToken, setResetToken] = useState(null);
   const t = useTheme(dark);
   const role = user?.role || null;
 
@@ -1614,6 +1690,13 @@ export default function App() {
     setUser(null);
     setPage("landing");
   };
+
+  // Detect a "/reset-password/:token" deep link from the emailed reset link,
+  // before we do anything else (session check, routing, etc).
+  useEffect(() => {
+    const match = window.location.pathname.match(/^\/reset-password\/([^/]+)$/);
+    if (match) setResetToken(match[1]);
+  }, []);
 
   // Page refresh hone par bhi session bani rahe, isliye cookie se current user check karo
   useEffect(() => {
@@ -1626,6 +1709,20 @@ export default function App() {
     window.addEventListener("auth-expired", onExpire);
     return () => window.removeEventListener("auth-expired", onExpire);
   }, []);
+
+  // Reset-password link works whether or not the person is logged in, and
+  // takes priority over the normal session-check/routing below.
+  if (resetToken) {
+    return (
+      <ResetPasswordPage
+        t={t}
+        dark={dark}
+        setDark={setDark}
+        token={resetToken}
+        goto={(p) => { setResetToken(null); goto(p); }}
+      />
+    );
+  }
 
   if (checkingSession) {
     return <div className="min-h-screen flex items-center justify-center text-slate-500 text-sm">Loading...</div>;

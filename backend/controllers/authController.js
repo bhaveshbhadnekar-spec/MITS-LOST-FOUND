@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User");
 const { sendTokenResponse } = require("../utils/token");
+const { sendPasswordResetEmail } = require("../utils/mailer");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -53,17 +54,29 @@ exports.login = async (req, res, next) => {
 // body: { idToken } from Google Identity Services on the frontend
 exports.googleLogin = async (req, res, next) => {
   try {
-    const { idToken } = req.body;
+    // Accept token from either "idToken" (legacy) or "credential" (Google Identity Services)
+    const idToken = req.body.idToken || req.body.credential;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: "Google id token is required." });
+    }
+
+    // Verify token with Google
     const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
+    if (!payload) {
+      console.error('Google token verification returned no payload');
+      return res.status(401).json({ success: false, message: "Invalid Google token." });
+    }
 
+    // Ensure email belongs to allowed MITS domain
     if (!User.isAllowedDomain(payload.email)) {
       return res.status(400).json({ success: false, message: "Please sign in with your official MITS Google account." });
     }
 
+    // Find existing user or create a new one
     let user = await User.findOne({ email: payload.email.toLowerCase() });
     if (!user) {
       user = await User.create({
@@ -75,9 +88,12 @@ exports.googleLogin = async (req, res, next) => {
       });
     }
 
+    // Issue JWT and cookie
     sendTokenResponse(user, 200, res);
   } catch (err) {
-    next(err);
+    console.error('Google login error:', err);
+    // Hide internal details from client but pass to error middleware for logging
+    return res.status(401).json({ success: false, message: "Google authentication failed." });
   }
 };
 
@@ -87,12 +103,19 @@ exports.forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email: req.body.email.toLowerCase() });
     // Always respond the same way whether or not the user exists, to avoid
     // leaking which emails are registered.
+    // NAYA:
     if (user) {
       const resetToken = crypto.randomBytes(32).toString("hex");
       user.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
       user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
       await user.save({ validateBeforeSave: false });
-      // TODO: send resetToken via nodemailer as a link to the frontend reset page.
+
+      const resetUrl = `${process.env.CLIENT_URL || "http://localhost:5173"}/reset-password/${resetToken}`;
+      try {
+        await sendPasswordResetEmail(user.email, resetUrl);
+      } catch (mailErr) {
+        console.error(`Failed to send password reset email to ${user.email}: ${mailErr.message}`);
+      }
     }
     res.status(200).json({ success: true, message: "If that email is registered, a reset link has been sent." });
   } catch (err) {
