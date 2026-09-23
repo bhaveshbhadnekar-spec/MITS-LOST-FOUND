@@ -295,7 +295,7 @@ const STUDENT_NAV = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "reportLost", label: "Report Lost Item", icon: FileWarning },
   { key: "reportFound", label: "Report Found Item", icon: Package },
-  { key: "myReports", label: "My Reports", icon: FileText },
+  { key: "myReports", label: "Reports", icon: FileText },
   { key: "matches", label: "AI Matches", icon: Sparkles },
   { key: "myClaims", label: "My Claims", icon: ShieldCheck },
   { key: "notifications", label: "Notifications", icon: Bell },
@@ -1382,7 +1382,7 @@ function MyClaims({ t, user }) {
       {tab === "made" && (
         <div className="grid gap-4">
           {loading && <p className={`text-sm ${t.textMuted}`}>Loading...</p>}
-          {!loading && claims.length === 0 && <p className={`text-sm ${t.textMuted}`}>You haven't submitted any claims yet. Find your item under "AI Matches" or "My Reports" and claim it there.</p>}
+          {!loading && claims.length === 0 && <p className={`text-sm ${t.textMuted}`}>You haven't submitted any claims yet. Find your item under "AI Matches" or "Reports" and claim it there.</p>}
           {claims.map((c) => (
             <div key={c._id} className={`rounded-xl border ${t.border} ${t.cardBg} p-5 flex flex-wrap items-center justify-between gap-4`}>
               <div>
@@ -1748,7 +1748,7 @@ export default function App() {
     dashboard: <Dashboard t={t} dark={dark} user={user} />,
     reportLost: <ReportForm t={t} mode="lost" />,
     reportFound: <ReportForm t={t} mode="found" />,
-    myReports: <ItemsSearch t={t} title="My Reports" user={user} />,
+    myReports: <ItemsSearch t={t} title="Reports" user={user} />,
     matches: <MatchesPage t={t} user={user} />,
     myClaims: <MyClaims t={t} user={user} />,
     notifications: <NotificationsPage t={t} />,
