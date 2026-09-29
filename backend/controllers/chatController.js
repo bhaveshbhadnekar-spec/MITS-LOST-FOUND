@@ -14,7 +14,7 @@ async function loadAuthorizedClaim(claimId, userId) {
   }
 
   const claimantId = String(claim.user);
-  const finderId = String(claim.item.reportedBy);
+  const finderId = String(claim.item?.reportedBy || "");
   const isClaimant = claimantId === String(userId);
   const isFinder = finderId === String(userId);
 
@@ -37,13 +37,13 @@ exports.getConversations = async (req, res, next) => {
 
     const claims = await Claim.find({}).populate("item", "reportedBy itemName image");
     const myClaims = claims.filter(
-      (c) => String(c.user) === String(userId) || String(c.item.reportedBy) === String(userId)
+      (c) => String(c.user) === String(userId) || String(c.item?.reportedBy) === String(userId)
     );
 
     const conversations = await Promise.all(
       myClaims.map(async (claim) => {
         const isClaimant = String(claim.user) === String(userId);
-        const otherPartyId = isClaimant ? claim.item.reportedBy : claim.user;
+        const otherPartyId = isClaimant ? claim.item?.reportedBy : claim.user;
 
         const lastMessage = await Message.findOne({ claim: claim._id }).sort({ createdAt: -1 });
         const unreadCount = await Message.countDocuments({
@@ -54,8 +54,8 @@ exports.getConversations = async (req, res, next) => {
 
         return {
           claimId: claim._id,
-          itemName: claim.item.itemName,
-          itemImage: claim.item.image,
+          itemName: claim.item?.itemName || "Item",
+          itemImage: claim.item?.image || "",
           claimStatus: claim.status,
           otherPartyId,
           role: isClaimant ? "claimant" : "finder",

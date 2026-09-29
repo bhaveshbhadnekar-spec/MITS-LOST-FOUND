@@ -53,88 +53,228 @@ function useTheme(dark) {
 
 function StatusPill({ status }) {
   const map = {
-    Active: "bg-amber-100 text-amber-700 border-amber-300",
-    Claimed: "bg-sky-100 text-sky-700 border-sky-300",
-    Recovered: "bg-emerald-100 text-emerald-700 border-emerald-300",
-    "Under Review": "bg-indigo-100 text-indigo-700 border-indigo-300",
-    Approved: "bg-emerald-100 text-emerald-700 border-emerald-300",
-    Rejected: "bg-rose-100 text-rose-700 border-rose-300",
-    Pending: "bg-amber-100 text-amber-700 border-amber-300",
+    Active: { bg: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", dot: "bg-emerald-500" },
+    Claimed: { bg: "bg-sky-500/10 text-sky-600 border-sky-500/20", dot: "bg-sky-500" },
+    Recovered: { bg: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20", dot: "bg-indigo-500" },
+    "Under Review": { bg: "bg-amber-500/10 text-amber-600 border-amber-500/20", dot: "bg-amber-500" },
+    Approved: { bg: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", dot: "bg-emerald-500" },
+    Rejected: { bg: "bg-rose-500/10 text-rose-600 border-rose-500/20", dot: "bg-rose-500" },
+    Pending: { bg: "bg-amber-500/10 text-amber-600 border-amber-500/20", dot: "bg-amber-500" },
   };
+  const conf = map[status] || { bg: "bg-slate-500/10 text-slate-600 border-slate-500/20", dot: "bg-slate-400" };
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${map[status] || "bg-slate-100 text-slate-700 border-slate-300"}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border backdrop-blur-sm shadow-xs ${conf.bg}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${conf.dot} animate-pulse`} />
       {status}
     </span>
   );
 }
 
+// ---------- Date & Timestamp Helpers ----------
+function formatDate(dateStr) {
+  if (!dateStr) return "N/A";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return "N/A";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} at ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const now = new Date();
+  const diffSec = Math.floor((now - d) / 1000);
+
+  if (diffSec < 45) return "Just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
+
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 // ---------- Landing Page ----------
 function Landing({ t, dark, goto }) {
   return (
-    <div className={`min-h-screen ${t.bg} ${t.text}`}>
-      <section className={`relative overflow-hidden border-b ${t.border}`}>
-        <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)", backgroundSize: "26px 26px" }} />
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-20 pb-24 relative grid lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <div className={`inline-flex items-center gap-2 text-xs font-semibold tracking-wide uppercase px-3 py-1.5 rounded-full border ${t.border} ${t.textMuted} mb-6`}>
-              <GraduationCap size={14} /> Madhav Institute of Technology &amp; Science, Gwalior
+    <div className={`min-h-screen ${t.bg} ${t.text} relative overflow-hidden`}>
+      {/* Background ambient decorative glows */}
+      <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-gradient-to-tr from-indigo-500/20 via-purple-500/20 to-pink-500/10 blur-[120px] pointer-events-none -z-10" />
+
+      <section className={`relative border-b ${t.border}`}>
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)", backgroundSize: "28px 28px" }} />
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 pb-20 relative grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7">
+            <div className={`inline-flex items-center gap-2 text-xs font-semibold tracking-wide uppercase px-3.5 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mb-6 shadow-xs`}>
+              <GraduationCap size={15} /> Madhav Institute of Technology &amp; Science, Gwalior
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
-              MITS Lost &amp; Found Portal
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1]">
+              Lost Something at MITS? <br />
+              <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
+                We'll Help You Find It.
+              </span>
             </h1>
-            <p className={`mt-5 text-lg ${t.textMuted} max-w-xl`}>
-              Helping the MITS community reconnect with their belongings — report, search, and claim items across campus in minutes.
+            <p className={`mt-5 text-base sm:text-lg ${t.textMuted} max-w-xl leading-relaxed`}>
+              The official centralized lost &amp; found network for MITS Gwalior. Report misplaced items, browse found belongings, and claim them securely in minutes.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button onClick={() => goto("login")} className="inline-flex items-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white font-semibold px-5 py-3 rounded-lg transition-colors">
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button onClick={() => goto("login")} className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold px-6 py-3.5 rounded-xl shadow-lg shadow-indigo-600/25 transition-all">
                 Report Lost Item <ArrowRight size={17} />
               </button>
-              <button onClick={() => goto("login")} className={`inline-flex items-center gap-2 border ${t.border} ${t.hover} font-semibold px-5 py-3 rounded-lg transition-colors`}>
-                Report Found Item
+              <button onClick={() => goto("login")} className={`inline-flex items-center gap-2 border ${t.border} ${t.hover} active:scale-95 font-semibold px-6 py-3.5 rounded-xl transition-all shadow-xs`}>
+                <Package size={17} className="text-indigo-500" /> Report Found Item
               </button>
+            </div>
+
+            {/* Quick stats banner */}
+            <div className="mt-12 grid grid-cols-3 gap-4 pt-8 border-t border-slate-200/60 dark:border-slate-800/60 max-w-lg">
+              <div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">95%+</div>
+                <div className={`text-xs ${t.textMuted} mt-0.5 font-medium`}>Recovery Rate</div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">&lt; 24h</div>
+                <div className={`text-xs ${t.textMuted} mt-0.5 font-medium`}>Avg Match Time</div>
+              </div>
+              <div>
+                <div className="text-2xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400">100%</div>
+                <div className={`text-xs ${t.textMuted} mt-0.5 font-medium`}>Campus Verified</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Hero Interactive Preview Card */}
+          <div className="lg:col-span-5 relative">
+            <div className={`rounded-2xl border ${t.border} ${t.cardBg} shadow-2xl shadow-indigo-500/10 p-6 relative overflow-hidden backdrop-blur-md`}>
+              <div className="flex items-center justify-between pb-4 border-b border-slate-200/50 dark:border-slate-800/50">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-rose-500" />
+                  <span className="w-3 h-3 rounded-full bg-amber-500" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className={`text-xs font-semibold ml-2 ${t.textMuted}`}>Live Campus Feed</span>
+                </div>
+                <StatusPill status="Active" />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className={`p-3.5 rounded-xl border ${t.border} bg-slate-500/5 hover:bg-slate-500/10 transition-all flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-sm">💻</div>
+                    <div>
+                      <div className="text-sm font-semibold">Dell Inspiron Charger</div>
+                      <div className={`text-xs ${t.textMuted}`}>SAC Computer Lab · Just now</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Found</span>
+                </div>
+
+                <div className={`p-3.5 rounded-xl border ${t.border} bg-slate-500/5 hover:bg-slate-500/10 transition-all flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center font-bold text-sm">🪪</div>
+                    <div>
+                      <div className="text-sm font-semibold">Student ID Card (CSE Dept)</div>
+                      <div className={`text-xs ${t.textMuted}`}>Central Library · 20m ago</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">Lost</span>
+                </div>
+
+                <div className={`p-3.5 rounded-xl border ${t.border} bg-slate-500/5 hover:bg-slate-500/10 transition-all flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-sm">🔑</div>
+                    <div>
+                      <div className="text-sm font-semibold">Bike Keys with Ring</div>
+                      <div className={`text-xs ${t.textMuted}`}>Main Gate Parking · 1h ago</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-semibold text-sky-600 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">Claimed</span>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-slate-800/50 flex items-center justify-between text-xs">
+                <span className={t.textMuted}>Got an item or lost something?</span>
+                <button onClick={() => goto("login")} className="text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1">
+                  Browse All Items <ArrowRight size={13} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Features Grid */}
       <section className="max-w-7xl mx-auto px-6 lg:px-10 py-20">
-        <div className="mb-10">
-          <div className="text-xs font-semibold tracking-wide uppercase text-indigo-600 mb-2">Platform Features</div>
-          <h2 className="text-3xl font-bold">Everything the campus needs, in one place</h2>
+        <div className="mb-12 text-center max-w-2xl mx-auto">
+          <div className="inline-block text-xs font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full mb-3">
+            Campus Ecosystem
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Everything the campus needs, built for trust</h2>
+          <p className={`mt-3 text-sm sm:text-base ${t.textMuted}`}>
+            Designed to ensure student belongings are returned safely without friction or security risks.
+          </p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {FEATURES.map((f) => (
-            <div key={f.title} className={`rounded-xl border ${t.border} ${t.cardBg} p-6 transition-transform hover:-translate-y-1`}>
-              <div className="w-10 h-10 rounded-lg bg-indigo-600/10 flex items-center justify-center mb-4">
-                <f.icon className="text-indigo-600" size={20} />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {FEATURES.map((f, i) => (
+            <div
+              key={f.title}
+              className={`pop-card group rounded-2xl border ${t.border} ${t.cardBg} p-7 relative cursor-pointer`}
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/10 via-purple-500/5 to-transparent rounded-bl-full pointer-events-none group-hover:scale-125 transition-transform duration-500" />
+              <div className="w-14 h-14 rounded-2xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center mb-5 group-hover:scale-115 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm">
+                <f.icon size={26} />
               </div>
-              <h3 className="font-semibold text-lg mb-1.5">{f.title}</h3>
-              <p className={`text-sm ${t.textMuted}`}>{f.desc}</p>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-bold text-lg group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{f.title}</h3>
+                <span className="text-[11px] font-semibold text-indigo-500/90 bg-indigo-500/10 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  Active
+                </span>
+              </div>
+              <p className={`text-sm ${t.textMuted} leading-relaxed`}>{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
+      {/* Footer */}
       <section className={`border-t ${t.border} ${t.bgAlt}`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-14 grid sm:grid-cols-3 gap-8 text-sm">
           <div>
-            <div className="font-bold text-lg mb-2">MITS Lost &amp; Found</div>
-            <p className={t.textMuted}>An official campus utility of Madhav Institute of Technology &amp; Science, Gwalior.</p>
+            <div className="font-extrabold text-xl mb-2 flex items-center gap-2">
+              <span className="text-indigo-600">MITS</span> Lost &amp; Found
+            </div>
+            <p className={`${t.textMuted} leading-relaxed`}>An official digital campus utility of Madhav Institute of Technology &amp; Science, Gwalior.</p>
           </div>
           <div>
-            <div className="font-semibold mb-2">Quick Links</div>
-            <div className="flex flex-col gap-1.5">
-              <button onClick={() => goto("login")} className={`text-left ${t.textMuted} hover:text-indigo-600`}>Login</button>
-              <button onClick={() => goto("developers")} className={`text-left ${t.textMuted} hover:text-indigo-600`}>Developers</button>
+            <div className="font-bold mb-3">Quick Navigation</div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => goto("login")} className={`text-left ${t.textMuted} hover:text-indigo-600 transition-colors`}>Student / Faculty Login</button>
+              <button onClick={() => goto("developers")} className={`text-left ${t.textMuted} hover:text-indigo-600 transition-colors`}>Developers &amp; Contributors</button>
             </div>
           </div>
           <div>
-            <div className="font-semibold mb-2">Contact</div>
+            <div className="font-bold mb-3">Campus Helpdesk</div>
             <p className={t.textMuted}>lostandfound@mitsgwalior.ac.in</p>
-            <p className={t.textMuted}>Gola Ka Mandir, Gwalior, MP</p>
+            <p className={`${t.textMuted} mt-1`}>Gola Ka Mandir, Gwalior, Madhya Pradesh</p>
           </div>
         </div>
-        <div className={`text-center text-xs ${t.textMuted} pb-6`}>© 2026 MITS Gwalior. All rights reserved.</div>
+        <div className={`text-center text-xs ${t.textMuted} pb-6 border-t ${t.border} pt-6`}>
+          © 2026 MITS Gwalior. Built with pride by MITS Students.
+        </div>
       </section>
     </div>
   );
@@ -321,22 +461,41 @@ function Shell({ t, dark, setDark, page, setPage, role, user, logout, children, 
           {sidebarOpen && <span className="font-bold whitespace-nowrap">MITS L&amp;F</span>}
         </div>
         <nav className="px-3 space-y-1">
-          {nav.map((n) => (
-            <button key={n.key} onClick={() => setPage(n.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${page === n.key ? "bg-indigo-700 text-white" : `${t.hover} ${t.textMuted}`}`}>
-              <n.icon size={18} className="shrink-0" />
-              {sidebarOpen && <span className="whitespace-nowrap">{n.label}</span>}
-            </button>
-          ))}
+          {nav.map((n) => {
+            const isActive = page === n.key;
+            return (
+              <button
+                key={n.key}
+                onClick={() => setPage(n.key)}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]"
+                    : `${t.hover} ${t.textMuted} hover:translate-x-1 hover:text-indigo-600 dark:hover:text-indigo-400`
+                }`}
+              >
+                <n.icon size={19} className={`shrink-0 transition-transform ${isActive ? "scale-110" : ""}`} />
+                {sidebarOpen && <span className="whitespace-nowrap">{n.label}</span>}
+              </button>
+            );
+          })}
           {role === "admin" && (
-            <button onClick={() => setPage("developers")}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${page === "developers" ? "bg-indigo-700 text-white" : `${t.hover} ${t.textMuted}`}`}>
-              <Sparkles size={18} className="shrink-0" />
+            <button
+              onClick={() => setPage("developers")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.97] ${
+                page === "developers"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]"
+                  : `${t.hover} ${t.textMuted} hover:translate-x-1 hover:text-indigo-600 dark:hover:text-indigo-400`
+              }`}
+            >
+              <Sparkles size={19} className="shrink-0" />
               {sidebarOpen && <span>Developers</span>}
             </button>
           )}
-          <button onClick={logout} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${t.hover} text-rose-500 mt-4`}>
-            <LogOut size={18} className="shrink-0" />
+          <button
+            onClick={logout}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${t.hover} text-rose-500 hover:bg-rose-500/10 active:scale-[0.97] transition-all duration-200 mt-4`}
+          >
+            <LogOut size={19} className="shrink-0" />
             {sidebarOpen && <span>Logout</span>}
           </button>
         </nav>
@@ -371,23 +530,25 @@ function Shell({ t, dark, setDark, page, setPage, role, user, logout, children, 
   );
 }
 
-function Widget({ t, label, value, icon: Icon, tint }) {
+function Widget({ t, label, value, icon: Icon, tint, gradient }) {
   return (
-    <div className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${tint}`}>
-        <Icon size={17} className="text-white" />
+    <div className={`pop-card rounded-2xl border ${t.border} ${t.cardBg} p-5.5 shadow-xs flex items-center justify-between cursor-pointer`}>
+      <div>
+        <div className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>{label}</div>
+        <div className="text-3xl font-extrabold tracking-tight mt-1">{value}</div>
       </div>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className={`text-sm mt-0.5 ${t.textMuted}`}>{label}</div>
+      <div className={`w-13 h-13 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${tint} transition-transform duration-300 group-hover:scale-110`}>
+        <Icon size={24} className="text-white" />
+      </div>
     </div>
   );
 }
 
 function PageHeader({ t, title, subtitle }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-2xl font-bold">{title}</h1>
-      {subtitle && <p className={`text-sm mt-1 ${t.textMuted}`}>{subtitle}</p>}
+    <div className="mb-8">
+      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{title}</h1>
+      {subtitle && <p className={`text-sm mt-1.5 ${t.textMuted} leading-relaxed`}>{subtitle}</p>}
     </div>
   );
 }
@@ -447,41 +608,74 @@ function Dashboard({ t, dark, user }) {
         <Widget t={t} label="Total Reports" value={loading ? "..." : items.length} icon={TrendingUp} tint="bg-sky-600" />
         <Widget t={t} label="Reports This Month" value={loading ? "..." : thisMonthCount} icon={Sparkles} tint="bg-violet-600" />
       </div>
-      <div className={`rounded-xl border ${t.border} ${t.cardBg} p-5 mb-6`}>
-        <h3 className="font-semibold mb-4">Reports This Month (Last 6 Months)</h3>
-        <div style={{ width: "100%", height: 240 }}>
+      <div className={`rounded-2xl border ${t.border} ${t.cardBg} p-6 mb-6 shadow-xs`}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="font-bold text-base">Monthly Activity Overview</h3>
+            <p className={`text-xs ${t.textMuted} mt-0.5`}>Trend of lost &amp; found items recorded over the last 6 months</p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600">
+            {thisMonthCount} reports this month
+          </span>
+        </div>
+        <div style={{ width: "100%", height: 260 }}>
           <ResponsiveContainer>
             <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="month" stroke={dark ? "#94a3b8" : "#64748b"} fontSize={12} />
-              <YAxis allowDecimals={false} stroke={dark ? "#94a3b8" : "#64748b"} fontSize={12} />
-              <Tooltip contentStyle={{ background: dark ? "#1e293b" : "#fff", border: "none", borderRadius: 8 }} />
-              <Line type="monotone" dataKey="reports" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 4 }} />
+              <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+              <XAxis dataKey="month" stroke={dark ? "#94a3b8" : "#64748b"} fontSize={12} tickLine={false} />
+              <YAxis allowDecimals={false} stroke={dark ? "#94a3b8" : "#64748b"} fontSize={12} tickLine={false} />
+              <Tooltip contentStyle={{ background: dark ? "#1e293b" : "#fff", border: dark ? "1px solid #334155" : "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} />
+              <Line type="monotone" dataKey="reports" stroke="#6366f1" strokeWidth={3} dot={{ r: 5, fill: "#6366f1" }} activeDot={{ r: 7 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
-      <div className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
-        <h3 className="font-semibold mb-4">Recent Activity</h3>
-        <div className="space-y-1">
-          {loading && <p className={`text-sm ${t.textMuted}`}>Loading...</p>}
-          {!loading && items.length === 0 && <p className={`text-sm ${t.textMuted}`}>No reports yet.</p>}
-          {items.slice(0, 5).map((it) => (
+
+      <div className={`rounded-2xl border ${t.border} ${t.cardBg} p-6 shadow-xs`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-base">Recent Campus Reports</h3>
+          <span className={`text-xs ${t.textMuted}`}>Latest incoming items</span>
+        </div>
+        <div className="space-y-2.5">
+          {loading && (
+            <div className="py-8 text-center">
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className={`text-xs ${t.textMuted}`}>Loading recent reports...</p>
+            </div>
+          )}
+          {!loading && items.length === 0 && (
+            <div className="py-8 text-center">
+              <Package size={32} className="mx-auto text-slate-400 opacity-40 mb-1" />
+              <p className={`text-xs ${t.textMuted}`}>No reports recorded yet.</p>
+            </div>
+          )}
+          {items.slice(0, 6).map((it) => (
             <button
               key={it._id}
               onClick={() => setSelected(it)}
-              className={`w-full flex items-center justify-between py-2 px-2 -mx-2 rounded-lg border-b ${t.border} last:border-0 ${t.hover} text-left`}
+              className={`w-full flex items-center justify-between p-3.5 rounded-xl border border-slate-200/50 dark:border-slate-800/50 ${t.hover} transition-all duration-200 text-left group`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${it.type === "lost" ? "bg-rose-500/10" : "bg-emerald-500/10"}`}>
-                  {it.type === "lost" ? <FileWarning size={15} className="text-rose-500" /> : <Package size={15} className="text-emerald-600" />}
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${it.type === "lost" ? "bg-rose-500/10 text-rose-600" : "bg-emerald-500/10 text-emerald-600"}`}>
+                  {it.type === "lost" ? <FileWarning size={18} /> : <Package size={18} />}
                 </div>
-                <div>
-                  <div className="text-sm font-medium">{it.itemName}</div>
-                  <div className={`text-xs ${t.textMuted}`}>{it.location} · {it.date?.slice(0, 10)}</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate group-hover:text-indigo-600 transition-colors">{it.itemName}</div>
+                  <div className={`text-xs ${t.textMuted} flex items-center gap-2 mt-0.5`}>
+                    <span className="truncate">{it.location}</span>
+                    <span>·</span>
+                    <span className="shrink-0">{formatDate(it.date)}</span>
+                    <span>·</span>
+                    <span className="shrink-0 text-indigo-500 font-medium flex items-center gap-1">
+                      <Clock size={11} /> {formatTimeAgo(it.createdAt || it.date)}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <StatusPill status={it.status} />
+              <div className="shrink-0 ml-3 flex items-center gap-2">
+                <StatusPill status={it.status} />
+                <ChevronRight size={15} className={`${t.textMuted} opacity-0 group-hover:opacity-100 transition-opacity`} />
+              </div>
             </button>
           ))}
         </div>
@@ -516,7 +710,7 @@ function ReportForm({ t, mode }) {
   const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], desc: "", date: "", location: "", contact: "", notes: "" });
+  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], desc: "", date: "", time: "", location: "", contact: "", notes: "" });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const handleSubmit = async (e) => {
@@ -524,7 +718,9 @@ function ReportForm({ t, mode }) {
     setError("");
     setSubmitting(true);
     try {
-      const res = isLost ? await createLostItem(form, imageFile) : await createFoundItem(form, imageFile);
+      const dateTime = form.time && form.date ? `${form.date}T${form.time}` : form.date;
+      const payload = { ...form, date: dateTime };
+      const res = isLost ? await createLostItem(payload, imageFile) : await createFoundItem(payload, imageFile);
       setReportId(res.item?._id?.slice(-6).toUpperCase() || "");
       setSubmitted(true);
     } catch (err) {
@@ -540,7 +736,7 @@ function ReportForm({ t, mode }) {
         <CheckCircle2 className="mx-auto text-emerald-600 mb-4" size={40} />
         <h2 className="text-xl font-bold mb-2">Report submitted</h2>
         <p className={`text-sm ${t.textMuted} mb-6`}>Report ID <span className="font-mono">LF-{reportId}</span> has been created. You'll be notified of any updates.</p>
-        <button onClick={() => { setSubmitted(false); setForm({ name: "", category: CATEGORIES[0], desc: "", date: "", location: "", contact: "", notes: "" }); setImageFile(null); }} className="bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg px-5 py-2.5">Submit another</button>
+        <button onClick={() => { setSubmitted(false); setForm({ name: "", category: CATEGORIES[0], desc: "", date: "", time: "", location: "", contact: "", notes: "" }); setImageFile(null); }} className="bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg px-5 py-2.5">Submit another</button>
       </div>
     );
   }
@@ -555,7 +751,7 @@ function ReportForm({ t, mode }) {
           <label className="text-sm font-medium">Item Name</label>
           <input required value={form.name} onChange={set("name")} placeholder="e.g. Black Dell Laptop" className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
         </div>
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-3 gap-4">
           <div>
             <label className="text-sm font-medium">Category</label>
             <select value={form.category} onChange={set("category")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`}>
@@ -563,8 +759,12 @@ function ReportForm({ t, mode }) {
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium">{isLost ? "Date Lost" : "Date Found"}</label>
+            <label className="text-sm font-medium">{isLost ? "Date Lost *" : "Date Found *"}</label>
             <input required type="date" value={form.date} onChange={set("date")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Approx. Time</label>
+            <input type="time" value={form.time || ""} onChange={set("time")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
           </div>
         </div>
         <div>
@@ -646,53 +846,172 @@ function ItemsSearch({ t, title, user }) {
   return (
     <div>
       <PageHeader t={t} title={title} subtitle="Search and filter across all campus reports" />
-      <div className={`rounded-xl border ${t.border} ${t.cardBg} p-4 mb-5 flex flex-wrap gap-3 items-center`}>
-        <div className={`flex items-center gap-2 rounded-lg border ${t.border} px-3 py-2 flex-1 min-w-[200px]`}>
-          <Search size={15} className={t.textMuted} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by item name..." className={`bg-transparent outline-none text-sm w-full ${t.text}`} />
+      {/* Interactive Search & Filter Controls */}
+      <div className={`rounded-2xl border ${t.border} ${t.cardBg} p-5 mb-6 shadow-sm`}>
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className={`flex items-center gap-2.5 rounded-xl border ${t.border} px-4 py-2.5 flex-1 min-w-[240px] focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 transition-all`}>
+            <Search size={16} className={t.textMuted} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by item name or keywords..." className={`bg-transparent outline-none text-sm w-full ${t.text}`} />
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={`rounded-xl border px-3.5 py-2.5 text-sm font-medium ${t.input}`}>
+              <option value="All">All Statuses</option>
+              <option>Active</option>
+              <option>Claimed</option>
+              <option>Recovered</option>
+              <option>Under Review</option>
+            </select>
+            <button onClick={() => setSortLatest(!sortLatest)} className={`flex items-center gap-1.5 rounded-xl border ${t.border} ${t.hover} px-3.5 py-2.5 text-sm font-medium transition-colors`}>
+              <Filter size={15} /> {sortLatest ? "Latest first" : "By category"}
+            </button>
+          </div>
         </div>
-        <select value={cat} onChange={(e) => setCat(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${t.input}`}>
-          <option>All</option>
-          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className={`rounded-lg border px-3 py-2 text-sm ${t.input}`}>
-          <option>All</option>
-          <option>Active</option><option>Claimed</option><option>Recovered</option><option>Under Review</option>
-        </select>
-        <button onClick={() => setSortLatest(!sortLatest)} className={`flex items-center gap-1.5 rounded-lg border ${t.border} ${t.hover} px-3 py-2 text-sm`}>
-          <Filter size={14} /> {sortLatest ? "Latest first" : "By category"}
-        </button>
+
+        {/* Category Pills Bar */}
+        <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 overflow-x-auto hide-scrollbar pb-1">
+          <button
+            onClick={() => setCat("All")}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              cat === "All"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : `${t.hover} ${t.textMuted} border ${t.border}`
+            }`}
+          >
+            All Categories
+          </button>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCat(c)}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                cat === c
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : `${t.hover} ${t.textMuted} border ${t.border}`
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((it) => (
-          <div key={it._id} className={`rounded-xl border ${t.border} ${t.cardBg} overflow-hidden`}>
-            {it.image ? (
-              <img src={it.image} alt={it.itemName} className="w-full h-36 object-cover" />
-            ) : (
-              <div className={`w-full h-36 flex items-center justify-center ${t.hover}`}>
-                <Package size={28} className={t.textMuted} />
+      {/* Items Grid */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filtered.map((it) => {
+          const isOwn = it.reportedBy?._id === user?.id || it.reportedBy?._id === user?._id;
+          const canQuickClaim = it.type === "found" && it.status === "Active" && !isOwn;
+
+          return (
+            <div
+              key={it._id}
+              className={`pop-card group rounded-2xl border ${t.border} ${t.cardBg} flex flex-col justify-between cursor-pointer`}
+            >
+              <div>
+                <div className="relative w-full h-44 overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  {it.image ? (
+                    <img
+                      src={it.image}
+                      alt={it.itemName}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                      <Package size={32} className="opacity-40 mb-1" />
+                      <span className="text-[11px] font-medium opacity-60">No photo uploaded</span>
+                    </div>
+                  )}
+                  {/* Floating Badges */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-xs ${
+                      it.type === "lost"
+                        ? "bg-rose-500/90 text-white"
+                        : "bg-emerald-600/90 text-white"
+                    }`}>
+                      {it.type}
+                    </span>
+                    <span className="text-[11px] font-medium bg-black/50 text-white backdrop-blur-md px-2.5 py-0.5 rounded-full">
+                      {it.category}
+                    </span>
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    <StatusPill status={it.status} />
+                  </div>
+                </div>
+
+                <div className="p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-base leading-snug line-clamp-1">{it.itemName}</h3>
+                    <span className={`text-[10px] font-mono shrink-0 px-1.5 py-0.5 rounded bg-slate-500/10 ${t.textMuted}`}>
+                      #{it._id.slice(-5).toUpperCase()}
+                    </span>
+                  </div>
+
+                  {it.description && (
+                    <p className={`text-xs mt-1.5 line-clamp-2 ${t.textMuted} leading-relaxed`}>
+                      {it.description}
+                    </p>
+                  )}
+
+                  <div className={`mt-4 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 space-y-1.5 text-xs ${t.textMuted}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MapPin size={13} className="text-indigo-500 shrink-0" />
+                        <span className="truncate">{it.location}</span>
+                      </div>
+                      <span className="text-[11px] shrink-0 font-medium text-indigo-500 flex items-center gap-1">
+                        <Clock size={11} /> {formatTimeAgo(it.createdAt || it.date)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar size={13} className="shrink-0" />
+                      <span>{it.date && it.date.includes("T") ? formatDateTime(it.date) : formatDate(it.date)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
-            <div className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <span className={`text-xs font-semibold uppercase tracking-wide ${it.type === "lost" ? "text-rose-500" : "text-emerald-600"}`}>{it.type}</span>
-                <StatusPill status={it.status} />
+
+              {/* Actions Footer */}
+              <div className="p-5 pt-0 grid grid-cols-2 gap-2.5 mt-2">
+                <button
+                  onClick={() => setSelected(it)}
+                  className={`btn-pop text-xs font-semibold py-2.5 px-3 rounded-xl border ${t.border} ${t.hover} flex items-center justify-center gap-1 transition-colors`}
+                >
+                  Details <ChevronRight size={13} />
+                </button>
+
+                {canQuickClaim ? (
+                  <button
+                    onClick={() => { setSelected(it); setShowClaimForm(true); }}
+                    className="btn-pop text-xs font-semibold py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    Claim <ShieldCheck size={14} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSelected(it)}
+                    className="btn-pop text-xs font-semibold py-2.5 px-3 rounded-xl bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center"
+                  >
+                    View
+                  </button>
+                )}
               </div>
-              <h3 className="font-semibold">{it.itemName}</h3>
-              <p className={`text-xs mt-1 ${t.textMuted}`}>{it.category} · {it._id.slice(-6).toUpperCase()}</p>
-              <div className={`mt-3 space-y-1 text-xs ${t.textMuted}`}>
-                <div className="flex items-center gap-1.5"><MapPin size={12} /> {it.location}</div>
-                <div className="flex items-center gap-1.5"><Calendar size={12} /> {it.date?.slice(0, 10)}</div>
-              </div>
-              <button onClick={() => setSelected(it)} className="mt-4 w-full text-sm font-medium text-indigo-600 flex items-center justify-center gap-1 border border-indigo-600/30 rounded-lg py-2 hover:bg-indigo-600/10">
-                View details <ChevronRight size={14} />
-              </button>
             </div>
+          );
+        })}
+
+        {loading && (
+          <div className="col-span-full py-16 text-center space-y-3">
+            <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className={`text-sm ${t.textMuted}`}>Fetching campus reports...</p>
           </div>
-        ))}
-        {loading && <p className={`col-span-full text-center py-10 text-sm ${t.textMuted}`}>Loading...</p>}
-        {!loading && filtered.length === 0 && <p className={`col-span-full text-center py-10 text-sm ${t.textMuted}`}>No items match your filters.</p>}
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className={`col-span-full py-16 text-center rounded-2xl border ${t.border} ${t.cardBg} p-8`}>
+            <Package size={40} className="mx-auto text-slate-400 mb-2 opacity-50" />
+            <h4 className="font-bold text-base">No items found</h4>
+            <p className={`text-xs mt-1 ${t.textMuted}`}>Try selecting a different category or clearing search filters.</p>
+          </div>
+        )}
       </div>
 
       {selected && !showClaimForm && (
@@ -722,45 +1041,80 @@ function ItemDetailModal({ t, item, user, onClose, onClaim }) {
   const canClaim = item.type === "found" && item.status === "Active" && !isOwnItem;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-all" onClick={onClose}>
       <div
-        className={`w-full max-w-lg rounded-xl border ${t.border} ${t.cardBg} max-h-[90vh] overflow-y-auto`}
+        className={`w-full max-w-lg rounded-2xl border ${t.border} ${t.cardBg} max-h-[90vh] overflow-y-auto shadow-2xl overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
-        {item.image ? (
-          <img src={item.image} alt={item.itemName} className="w-full h-56 object-cover" />
-        ) : (
-          <div className={`w-full h-40 flex items-center justify-center ${t.hover}`}>
-            <Package size={36} className={t.textMuted} />
-          </div>
-        )}
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <span className={`text-xs font-semibold uppercase tracking-wide ${item.type === "lost" ? "text-rose-500" : "text-emerald-600"}`}>{item.type} item</span>
-              <h2 className="text-lg font-bold mt-0.5">{item.itemName}</h2>
+        <div className="relative">
+          {item.image ? (
+            <img src={item.image} alt={item.itemName} className="w-full h-64 object-cover" />
+          ) : (
+            <div className={`w-full h-44 flex flex-col items-center justify-center ${t.hover} text-slate-400`}>
+              <Package size={44} className="opacity-40 mb-1" />
+              <span className="text-xs font-medium opacity-60">No photo uploaded</span>
             </div>
-            <button onClick={onClose} className={`p-1.5 rounded-lg ${t.hover}`}><X size={18} /></button>
-          </div>
-          <div className="flex items-center gap-2 mb-4">
+          )}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+              item.type === "lost" ? "bg-rose-500/10 text-rose-600 border border-rose-500/20" : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+            }`}>
+              {item.type} item
+            </span>
             <StatusPill status={item.status} />
-            <span className={`text-xs ${t.textMuted}`}>{item.category}</span>
           </div>
-          <p className={`text-sm mb-4 ${t.textMuted}`}>{item.description}</p>
-          <div className={`grid grid-cols-2 gap-3 text-xs ${t.textMuted} mb-4`}>
-            <div className="flex items-center gap-1.5"><MapPin size={13} /> {item.location}</div>
-            <div className="flex items-center gap-1.5"><Calendar size={13} /> {item.date?.slice(0, 10)}</div>
+
+          <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">{item.itemName}</h2>
+          <div className={`text-xs font-medium mt-1 ${t.textMuted}`}>Category: <span className="text-indigo-600 font-semibold">{item.category}</span></div>
+
+          <div className="my-4 p-3.5 rounded-xl bg-slate-500/5 border border-slate-200/50 dark:border-slate-800/50 text-sm leading-relaxed">
+            {item.description || "No specific description provided."}
+          </div>
+
+          <div className={`grid grid-cols-2 gap-3 text-xs ${t.textMuted} mb-6`}>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+              <MapPin size={15} className="text-indigo-500 shrink-0" />
+              <span className="truncate">{item.location}</span>
+            </div>
+            <div className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-800/40">
+              <Calendar size={15} className="text-indigo-500 shrink-0" />
+              <span>{item.date && item.date.includes("T") ? formatDateTime(item.date) : formatDate(item.date)}</span>
+            </div>
+            {item.createdAt && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-800/40 col-span-2">
+                <Clock size={15} className="text-indigo-500 shrink-0" />
+                <span>Reported on {formatDateTime(item.createdAt)} ({formatTimeAgo(item.createdAt)})</span>
+              </div>
+            )}
             {item.reportedBy?.name && (
-              <div className="flex items-center gap-1.5 col-span-2"><User size={13} /> Reported by {item.reportedBy.name}</div>
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200/40 dark:border-slate-800/40 col-span-2">
+                <User size={15} className="text-indigo-500 shrink-0" />
+                <span>Reported by {item.reportedBy.name}</span>
+              </div>
             )}
           </div>
+
           {canClaim && (
-            <button onClick={onClaim} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 text-sm">
-              This is mine — Claim this item
+            <button
+              onClick={onClaim}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl py-3 text-sm shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2"
+            >
+              <ShieldCheck size={18} /> This is mine — Claim this item
             </button>
           )}
           {isOwnItem && (
-            <p className={`text-xs text-center ${t.textMuted}`}>This is your own report.</p>
+            <p className={`text-xs text-center py-2 px-3 rounded-lg bg-slate-500/5 border border-slate-200/40 dark:border-slate-800/40 ${t.textMuted}`}>
+              This is your own submitted report.
+            </p>
           )}
         </div>
       </div>
@@ -791,36 +1145,88 @@ function ClaimFormModal({ t, item, onClose, onSubmitted }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div className={`w-full max-w-lg rounded-xl border ${t.border} ${t.cardBg} max-h-[90vh] overflow-y-auto p-6`} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-lg font-bold">Claim "{item.itemName}"</h2>
-          <button onClick={onClose} className={`p-1.5 rounded-lg ${t.hover}`}><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs transition-all" onClick={onClose}>
+      <div className={`w-full max-w-lg rounded-2xl border ${t.border} ${t.cardBg} max-h-[90vh] overflow-y-auto p-6 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-5 pb-4 border-b border-slate-200/50 dark:border-slate-800/50">
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
+              <ShieldCheck size={14} /> Ownership Verification
+            </div>
+            <h2 className="text-lg font-bold tracking-tight">Claim "{item.itemName}"</h2>
+          </div>
+          <button onClick={onClose} className={`p-2 rounded-xl ${t.hover} transition-colors`}><X size={18} /></button>
         </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
+          {error && <div className="text-xs text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3.5 py-2.5 font-medium">{error}</div>}
+
           <div>
-            <label className="text-sm font-medium">Describe how you know this is yours</label>
-            <textarea required minLength={10} rows={3} value={ownershipDescription} onChange={(e) => setOwnershipDescription(e.target.value)}
-              placeholder="E.g. brand, when/where you lost it, distinguishing marks..."
-              className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <label className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+              1. How do you know this is yours? *
+            </label>
+            <textarea
+              required
+              minLength={10}
+              rows={3}
+              value={ownershipDescription}
+              onChange={(e) => setOwnershipDescription(e.target.value)}
+              placeholder="E.g. Brand, color, scratches, where you kept it, when it went missing..."
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${t.input}`}
+            />
           </div>
+
           <div>
-            <label className="text-sm font-medium">Identification details</label>
-            <input required minLength={5} value={identificationDetails} onChange={(e) => setIdentificationDetails(e.target.value)}
-              placeholder="E.g. serial number, unique sticker, initials engraved..."
-              className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <label className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+              2. Secret Identification Details *
+            </label>
+            <input
+              required
+              minLength={5}
+              value={identificationDetails}
+              onChange={(e) => setIdentificationDetails(e.target.value)}
+              placeholder="E.g. Serial number, stickers, password hint, engraved name..."
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${t.input}`}
+            />
           </div>
+
           <div>
-            <label className="text-sm font-medium">Optional proof (photo/receipt)</label>
-            <label className={`mt-1 block rounded-lg border-2 border-dashed ${t.border} p-4 text-center ${t.textMuted} text-sm cursor-pointer hover:border-indigo-500`}>
-              {proofFile ? proofFile.name : "Click to upload"}
+            <label className="text-xs font-semibold tracking-wide uppercase text-slate-500">
+              3. Proof / Receipt / Old Photo (Optional)
+            </label>
+            <label className={`mt-1.5 flex flex-col items-center justify-center rounded-xl border-2 border-dashed ${t.border} p-5 text-center ${t.textMuted} text-xs cursor-pointer hover:border-indigo-500 hover:bg-indigo-500/5 transition-all`}>
+              {proofFile ? (
+                <div className="font-semibold text-indigo-600 flex items-center gap-1.5">
+                  <CheckCircle2 size={16} /> {proofFile.name}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Package size={24} className="mx-auto opacity-50" />
+                  <div className="font-medium text-slate-700 dark:text-slate-300">Click to upload photo or bill</div>
+                  <div className="text-[11px] opacity-60">PNG, JPG up to 10MB</div>
+                </div>
+              )}
               <input type="file" accept="image/*" className="hidden" onChange={(e) => setProofFile(e.target.files[0] || null)} />
             </label>
           </div>
-          <button type="submit" disabled={submitting} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 text-sm disabled:opacity-60">
-            {submitting ? "Submitting..." : "Submit claim"}
-          </button>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl py-3 text-sm shadow-md shadow-indigo-600/25 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Submitting Claim...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} /> Submit Claim to Finder &amp; Security
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -889,7 +1295,12 @@ function NotificationsPage({ t }) {
               <Icon size={18} className={`mt-0.5 shrink-0 ${color}`} />
               <div className="flex-1">
                 <p className="text-sm">{n.message}</p>
-                <p className={`text-xs mt-1 ${t.textMuted}`}>{n.createdAt?.slice(0, 10)}</p>
+                <p className={`text-xs mt-1 ${t.textMuted} flex items-center gap-1.5`}>
+                  <Clock size={12} className="shrink-0 text-indigo-500" />
+                  <span>{formatDateTime(n.createdAt)}</span>
+                  <span>·</span>
+                  <span className="text-indigo-500 font-medium">{formatTimeAgo(n.createdAt)}</span>
+                </p>
               </div>
               {!n.read && <span className="w-2 h-2 rounded-full bg-indigo-600 mt-1.5 shrink-0" />}
             </button>
@@ -930,46 +1341,59 @@ function MatchesPage({ t, user }) {
       {!loading && !error && matches.length === 0 && (
         <p className={`text-sm ${t.textMuted}`}>No likely matches found right now. Check back after more reports come in.</p>
       )}
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         {matches.map((m, idx) => {
           const isMyLostReport = m.lostItem.reportedBy?._id === user?.id || m.lostItem.reportedBy?._id === user?._id;
           const canClaim = isMyLostReport && m.foundItem.status === "Active";
           return (
-          <div key={idx} className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
-            <div className="flex items-center justify-between mb-3">
+          <div key={idx} className={`pop-card rounded-2xl border ${t.border} ${t.cardBg} p-6 shadow-xs relative overflow-hidden cursor-pointer`}>
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-indigo-600" />
-                <span className="text-sm font-semibold">Possible Match</span>
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                  <Sparkles size={17} />
+                </div>
+                <div>
+                  <span className="text-sm font-bold">Smart Match Recommendation</span>
+                  <div className={`text-[11px] ${t.textMuted}`}>Automated match calculated by category, name &amp; location</div>
+                </div>
               </div>
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${scoreColor(m.score)}`}>
-                {m.score}% match
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-2xs ${scoreColor(m.score)}`}>
+                {m.score}% match confidence
               </span>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
-                  <FileWarning size={15} className="text-rose-500" />
+
+            <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-500/5 border border-slate-200/40 dark:border-slate-800/40">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                  <FileWarning size={18} />
                 </div>
-                <div>
-                  <div className="text-xs font-medium text-rose-500 mb-0.5">LOST {isMyLostReport && "· your report"}</div>
-                  <div className="text-sm font-medium">{m.lostItem.itemName}</div>
-                  <div className={`text-xs ${t.textMuted}`}>{m.lostItem.location} · {m.lostItem.dateLost?.slice(0, 10)}</div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-rose-500 uppercase tracking-wider mb-0.5">
+                    LOST {isMyLostReport && "· (Your Report)"}
+                  </div>
+                  <div className="text-sm font-bold truncate">{m.lostItem.itemName}</div>
+                  <div className={`text-xs ${t.textMuted} mt-0.5`}>{m.lostItem.location} · {formatDate(m.lostItem.dateLost)}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <Package size={15} className="text-emerald-600" />
+
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Package size={18} />
                 </div>
-                <div>
-                  <div className="text-xs font-medium text-emerald-600 mb-0.5">FOUND</div>
-                  <div className="text-sm font-medium">{m.foundItem.itemName}</div>
-                  <div className={`text-xs ${t.textMuted}`}>{m.foundItem.location} · {m.foundItem.dateFound?.slice(0, 10)}</div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">FOUND REPORT</div>
+                  <div className="text-sm font-bold truncate">{m.foundItem.itemName}</div>
+                  <div className={`text-xs ${t.textMuted} mt-0.5`}>{m.foundItem.location} · {formatDate(m.foundItem.dateFound)}</div>
                 </div>
               </div>
             </div>
+
             {canClaim && (
-              <button onClick={() => setClaiming(m.foundItem)} className="mt-4 w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2 text-sm">
-                This looks like mine — Claim it
+              <button
+                onClick={() => setClaiming(m.foundItem)}
+                className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl py-3 text-sm shadow-md shadow-indigo-600/25 transition-all flex items-center justify-center gap-2"
+              >
+                <ShieldCheck size={17} /> This looks like mine — Claim it now
               </button>
             )}
           </div>
@@ -1192,7 +1616,10 @@ function AdminClaims({ t }) {
               <div>
                 <div className="font-mono text-xs text-indigo-600">{c._id.slice(-8).toUpperCase()}</div>
                 <div className="font-semibold">{c.item?.itemName}</div>
-                <div className={`text-xs ${t.textMuted}`}>Claimed by {c.user?.name} ({c.user?.email}) · {c.createdAt?.slice(0, 10)}</div>
+                <div className={`text-xs ${t.textMuted} mt-0.5 flex items-center gap-1.5`}>
+                  <Clock size={12} className="shrink-0" />
+                  <span>Claimed by {c.user?.name} ({c.user?.email}) · {formatDateTime(c.createdAt)} ({formatTimeAgo(c.createdAt)})</span>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <StatusPill status={c.status} />
@@ -1295,8 +1722,9 @@ function ChatModal({ t, claimId, itemName, otherPartyName, user, onClose }) {
                   }`}
                 >
                   {m.text}
-                  <div className={`text-[10px] mt-1 opacity-70`}>
-                    {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  <div className={`text-[10px] mt-1 opacity-70 flex items-center justify-end gap-1`}>
+                    <Clock size={10} />
+                    <span>{formatDateTime(m.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -1369,36 +1797,68 @@ function MyClaims({ t, user }) {
       <PageHeader t={t} title="My Claims" subtitle="Claims you've made, and claims on items you've found" />
       {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2 mb-4">{error}</div>}
 
-      <div className={`flex gap-2 mb-5 border-b ${t.border}`}>
-        <button onClick={() => setTab("made")} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${tab === "made" ? "border-indigo-600 text-indigo-600" : "border-transparent " + t.textMuted}`}>
-          Claims I made
+      <div className={`flex gap-3 mb-6 border-b ${t.border} pb-1`}>
+        <button
+          onClick={() => setTab("made")}
+          className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 ${
+            tab === "made"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]"
+              : `${t.hover} ${t.textMuted}`
+          }`}
+        >
+          Claims I Made
         </button>
-        <button onClick={() => setTab("received")} className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${tab === "received" ? "border-indigo-600 text-indigo-600" : "border-transparent " + t.textMuted}`}>
-          Claims on my found items
-          {pendingReceivedCount > 0 && <span className="text-xs bg-amber-500 text-white rounded-full px-1.5 py-0.5">{pendingReceivedCount}</span>}
+        <button
+          onClick={() => setTab("received")}
+          className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 flex items-center gap-2 ${
+            tab === "received"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.02]"
+              : `${t.hover} ${t.textMuted}`
+          }`}
+        >
+          Claims on My Found Items
+          {pendingReceivedCount > 0 && (
+            <span className="text-xs bg-amber-500 text-white rounded-full px-2 py-0.5 font-bold shadow-xs">
+              {pendingReceivedCount}
+            </span>
+          )}
         </button>
       </div>
 
       {tab === "made" && (
         <div className="grid gap-4">
           {loading && <p className={`text-sm ${t.textMuted}`}>Loading...</p>}
-          {!loading && claims.length === 0 && <p className={`text-sm ${t.textMuted}`}>You haven't submitted any claims yet. Find your item under "AI Matches" or "Reports" and claim it there.</p>}
+          {!loading && claims.length === 0 && (
+            <div className={`text-center py-12 rounded-2xl border ${t.border} ${t.cardBg} p-8`}>
+              <ShieldCheck size={36} className="mx-auto text-slate-400 opacity-40 mb-2" />
+              <h4 className="font-bold text-base">No claims submitted yet</h4>
+              <p className={`text-xs mt-1 ${t.textMuted}`}>Find your item under "AI Matches" or "Reports" and click claim.</p>
+            </div>
+          )}
           {claims.map((c) => (
-            <div key={c._id} className={`rounded-xl border ${t.border} ${t.cardBg} p-5 flex flex-wrap items-center justify-between gap-4`}>
+            <div key={c._id} className={`pop-card rounded-2xl border ${t.border} ${t.cardBg} p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs cursor-pointer`}>
               <div>
-                <div className="font-semibold">{c.item?.itemName}</div>
-                <div className={`text-xs ${t.textMuted}`}>Submitted {c.createdAt?.slice(0, 10)}</div>
-                {c.adminNote && <div className={`text-xs mt-1 ${t.textMuted}`}>Note: {c.adminNote}</div>}
+                <div className="font-bold text-base">{c.item?.itemName}</div>
+                <div className={`text-xs ${t.textMuted} mt-0.5 flex items-center gap-1.5`}>
+                  <Clock size={12} className="shrink-0" />
+                  <span>Submitted on {formatDateTime(c.createdAt)} ({formatTimeAgo(c.createdAt)})</span>
+                </div>
+                {c.adminNote && <div className="text-xs mt-1.5 px-2.5 py-1 rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300 inline-block">Note: {c.adminNote}</div>}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <StatusPill status={c.status} />
-                <button onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.item?.reportedBy?.name })}
-                  className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
-                  💬 Chat
+                <button
+                  onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.item?.reportedBy?.name })}
+                  className="btn-pop text-xs font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-600 hover:text-white border border-indigo-500/20 rounded-xl px-3.5 py-2 transition-all flex items-center gap-1.5"
+                >
+                  💬 Chat with Finder
                 </button>
                 {c.status === "Approved" && (
-                  <button onClick={() => setReviewFor(c)} className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
-                    Leave a review
+                  <button
+                    onClick={() => setReviewFor(c)}
+                    className="btn-pop text-xs font-semibold text-emerald-600 bg-emerald-500/10 hover:bg-emerald-600 hover:text-white border border-emerald-500/20 rounded-xl px-3.5 py-2 transition-all flex items-center gap-1"
+                  >
+                    ⭐ Review
                   </button>
                 )}
               </div>
@@ -1410,36 +1870,55 @@ function MyClaims({ t, user }) {
       {tab === "received" && (
         <div className="grid gap-4">
           {loading && <p className={`text-sm ${t.textMuted}`}>Loading...</p>}
-          {!loading && received.length === 0 && <p className={`text-sm ${t.textMuted}`}>No one has claimed any of your found item reports yet.</p>}
+          {!loading && received.length === 0 && (
+            <div className={`text-center py-12 rounded-2xl border ${t.border} ${t.cardBg} p-8`}>
+              <Package size={36} className="mx-auto text-slate-400 opacity-40 mb-2" />
+              <h4 className="font-bold text-base">No claim requests received</h4>
+              <p className={`text-xs mt-1 ${t.textMuted}`}>No one has submitted a claim for your reported found items yet.</p>
+            </div>
+          )}
           {received.map((c) => (
-            <div key={c._id} className={`rounded-xl border ${t.border} ${t.cardBg} p-5`}>
+            <div key={c._id} className={`pop-card rounded-2xl border ${t.border} ${t.cardBg} p-5 shadow-xs cursor-pointer`}>
               <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
                 <div>
-                  <div className="font-semibold">{c.item?.itemName}</div>
-                  <div className={`text-xs ${t.textMuted}`}>Claimed by {c.user?.name} ({c.user?.email}) · {c.createdAt?.slice(0, 10)}</div>
+                  <div className="font-bold text-base">{c.item?.itemName}</div>
+                  <div className={`text-xs ${t.textMuted} mt-0.5 flex items-center gap-1.5`}>
+                    <Clock size={12} className="shrink-0" />
+                    <span>Claimed by <span className="font-semibold text-indigo-600">{c.user?.name}</span> ({c.user?.email}) · {formatDateTime(c.createdAt)} ({formatTimeAgo(c.createdAt)})</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <StatusPill status={c.status} />
-                  <button onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.user?.name })}
-                    className="text-xs font-semibold text-indigo-600 border border-indigo-600/30 rounded-lg px-3 py-1.5 hover:bg-indigo-600/10">
+                  <button
+                    onClick={() => setChatFor({ id: c._id, itemName: c.item?.itemName, otherName: c.user?.name })}
+                    className="btn-pop text-xs font-semibold text-indigo-600 bg-indigo-500/10 hover:bg-indigo-600 hover:text-white border border-indigo-500/20 rounded-xl px-3 py-2 transition-all flex items-center gap-1"
+                  >
                     💬 Chat
                   </button>
                   {(c.status === "Pending" || c.status === "Under Review") && (
                     <>
-                      <button disabled={busyId === c._id} onClick={() => handleDecision(c._id, "Approved")}
-                        className="text-xs font-semibold text-emerald-600 border border-emerald-600/30 rounded-lg px-3 py-1.5 hover:bg-emerald-600/10 disabled:opacity-50">
-                        Approve
+                      <button
+                        disabled={busyId === c._id}
+                        onClick={() => handleDecision(c._id, "Approved")}
+                        className="btn-pop text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl px-3.5 py-2 shadow-xs transition-all disabled:opacity-50"
+                      >
+                        ✓ Approve
                       </button>
-                      <button disabled={busyId === c._id} onClick={() => handleDecision(c._id, "Rejected")}
-                        className="text-xs font-semibold text-rose-500 border border-rose-500/30 rounded-lg px-3 py-1.5 hover:bg-rose-500/10 disabled:opacity-50">
-                        Reject
+                      <button
+                        disabled={busyId === c._id}
+                        onClick={() => handleDecision(c._id, "Rejected")}
+                        className="btn-pop text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl px-3.5 py-2 shadow-xs transition-all disabled:opacity-50"
+                      >
+                        ✕ Reject
                       </button>
                     </>
                   )}
                 </div>
               </div>
-              <p className={`text-xs ${t.textMuted} mb-1`}><span className="font-medium">Ownership description:</span> {c.ownershipDescription}</p>
-              <p className={`text-xs ${t.textMuted}`}><span className="font-medium">Identification:</span> {c.identificationDetails}</p>
+              <div className="p-3 rounded-xl bg-slate-500/5 border border-slate-200/40 dark:border-slate-800/40 space-y-1 mt-2">
+                <p className={`text-xs ${t.textMuted}`}><span className="font-semibold text-slate-800 dark:text-slate-200">Ownership description:</span> {c.ownershipDescription}</p>
+                <p className={`text-xs ${t.textMuted}`}><span className="font-semibold text-slate-800 dark:text-slate-200">Identification details:</span> {c.identificationDetails}</p>
+              </div>
             </div>
           ))}
         </div>
