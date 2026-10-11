@@ -343,7 +343,6 @@ function Login({ t, dark, setDark, goto, login }) {
             </div>
           </button>
           <nav className="hidden sm:flex items-center gap-8 text-sm font-medium">
-            <button onClick={() => goto("landing")} className={`${t.textMuted} hover:text-indigo-600`}>Home</button>
             <button onClick={() => goto("developers")} className={`${t.textMuted} hover:text-indigo-600`}>Developers</button>
           </nav>
           <button onClick={() => setDark(!dark)} className={`p-2 rounded-lg ${t.hover}`}>
