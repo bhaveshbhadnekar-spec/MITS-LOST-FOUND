@@ -363,7 +363,7 @@ function Login({ t, dark, setDark, goto, login }) {
               Found Portal
             </span>
           </h1>
-          <p className={`mt-5 text-lg ${t.textMuted} max-w-xl`}>
+          <p className={`mt-5 text-lg font-bold ${t.text} max-w-xl`}>
             A comprehensive platform for reporting lost and found items, matching reports with AI, and
             reconnecting the MITS community with their belongings.
           </p>
