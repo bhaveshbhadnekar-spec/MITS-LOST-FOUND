@@ -2154,7 +2154,7 @@ function ResetPasswordPage({ t, dark, setDark, token, goto }) {
 // ---------- Root App ----------
 export default function App() {
   const [dark, setDark] = useState(false);
-  const [page, setPage] = useState("landing");
+  const [page, setPage] = useState("login");
   const [user, setUser] = useState(null); // { id, name, email, role, profileImage }
   const [checkingSession, setCheckingSession] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -2167,7 +2167,7 @@ export default function App() {
   const logout = async () => {
     try { await logoutUser(); } catch (err) { console.error(err); }
     setUser(null);
-    setPage("landing");
+    setPage("login");
   };
 
   // Detect a "/reset-password/:token" deep link from the emailed reset link,
@@ -2187,7 +2187,7 @@ export default function App() {
     const onExpire = () => {
       localStorage.removeItem("token");
       setUser(null);
-      setPage("landing");
+      setPage("login");
     };
     window.addEventListener("auth-expired", onExpire);
     return () => window.removeEventListener("auth-expired", onExpire);
@@ -2219,8 +2219,8 @@ export default function App() {
         </Shell>
       );
     }
-    if (page === "login") return <Login t={t} dark={dark} setDark={setDark} goto={goto} login={login} />;
-    return <Landing t={t} dark={dark} goto={goto} />;
+    if (page === "landing") return <Landing t={t} dark={dark} goto={goto} />;
+    return <Login t={t} dark={dark} setDark={setDark} goto={goto} login={login} />;
   }
 
   const pages = {
