@@ -2152,7 +2152,7 @@ function ResetPasswordPage({ t, dark, setDark, token, goto }) {
 
 // ---------- Root App ----------
 export default function App() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
   const [page, setPage] = useState("login");
   const [user, setUser] = useState(null); // { id, name, email, role, profileImage }
   const [checkingSession, setCheckingSession] = useState(true);
