@@ -4,7 +4,7 @@ import {
   Package, CheckCircle2, Clock, AlertCircle, LayoutDashboard, FileText,
   PlusCircle, Settings, LogOut, Users, BarChart3, FileWarning,
   Mail, Github, Linkedin, Moon, Sun, Filter, ChevronRight, Sparkles,
-  KeyRound, GraduationCap, Building2, TrendingUp, Star
+  KeyRound, GraduationCap, Building2, TrendingUp, Star, Camera, Upload, RotateCcw, Trash2
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { logoutUser, getCurrentUser, googleLogin, resetPassword } from "./api/auth";
 import { getLostItems, getFoundItems, createLostItem, createFoundItem } from "./api/items";
+import { analyzeItemImage } from "./api/ai";
 import { getAllMatches } from "./api/matches";
 import { createClaim, getMyClaims, getAllClaims, decideClaim, getReceivedClaims } from "./api/claims";
 import { getMessages, sendMessage } from "./api/chats";
@@ -701,16 +702,258 @@ function Dashboard({ t, dark, user }) {
   );
 }
 
+// ---------- Live Camera Capture Modal ----------
+function CameraCaptureModal({ isOpen, onClose, onCapture, t }) {
+  const videoRef = React.useRef(null);
+  const [stream, setStream] = useState(null);
+  const [facingMode, setFacingMode] = useState("environment");
+  const [error, setError] = useState("");
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        setStream(null);
+      }
+      return;
+    }
+
+    let activeStream = null;
+    setError("");
+
+    async function initCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError("Live camera is not supported in this browser. Please use the Upload Photo option.");
+          return;
+        }
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        activeStream = s;
+        setStream(s);
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+        }
+      } catch (err) {
+        console.error("Camera access error:", err);
+        setError("Camera permission denied or camera not found. Please enable camera access or choose an image from your files.");
+      }
+    }
+
+    initCamera();
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [isOpen, facingMode]);
+
+  const handleCapture = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    setFlash(true);
+    setTimeout(() => setFlash(false), 200);
+
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          const file = new File([blob], `camera_snap_${Date.now()}.jpg`, { type: "image/jpeg" });
+          if (stream) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
+          onCapture(file);
+        }
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
+  const toggleFacing = () => {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-lg rounded-2xl border ${t.border} bg-slate-900 text-white overflow-hidden shadow-2xl flex flex-col`}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900/90 z-10">
+          <div className="flex items-center gap-2">
+            <Camera size={18} className="text-indigo-400" />
+            <span className="font-bold text-sm">Live Camera Scanner</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Video Viewport */}
+        <div className="relative aspect-4/3 sm:aspect-16/10 bg-black flex items-center justify-center overflow-hidden">
+          {error ? (
+            <div className="p-6 text-center text-sm text-rose-300">
+              <AlertCircle size={32} className="mx-auto mb-2 text-rose-400" />
+              <p>{error}</p>
+            </div>
+          ) : (
+            <>
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              {/* Reticle guide */}
+              <div className="absolute inset-8 sm:inset-12 border-2 border-dashed border-indigo-400/70 rounded-2xl pointer-events-none flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.25)]">
+                <span className="text-[11px] font-semibold tracking-wide uppercase text-white/95 bg-slate-950/80 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
+                  Center Item in Frame
+                </span>
+              </div>
+              {flash && <div className="absolute inset-0 bg-white transition-opacity duration-150 pointer-events-none z-20" />}
+            </>
+          )}
+        </div>
+
+        {/* Shutter controls */}
+        <div className="p-4 bg-slate-900 flex items-center justify-between z-10 border-t border-slate-800">
+          <button
+            type="button"
+            onClick={toggleFacing}
+            disabled={!!error}
+            className="p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors disabled:opacity-40"
+            title="Switch Front / Rear Camera"
+          >
+            <RotateCcw size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleCapture}
+            disabled={!!error}
+            className="flex items-center justify-center w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-lg shadow-indigo-600/40 border-4 border-slate-900 transition-all disabled:opacity-40"
+            title="Click Photo"
+          >
+            <div className="w-6 h-6 rounded-full bg-white" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Report Forms ----------
 function ReportForm({ t, mode }) {
   const isLost = mode === "lost";
   const [submitted, setSubmitted] = useState(false);
   const [reportId, setReportId] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], desc: "", date: "", time: "", location: "", contact: "", notes: "" });
+  const [showCamera, setShowCamera] = useState(false);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [aiNotice, setAiNotice] = useState("");
+  const fileInputRef = React.useRef(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    category: CATEGORIES[0],
+    desc: "",
+    date: new Date().toISOString().split("T")[0],
+    time: new Date().toTimeString().slice(0, 5),
+    location: "",
+    contact: "",
+    notes: "",
+  });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  // Cleanup object preview URL when unmounted or changed
+  useEffect(() => {
+    return () => {
+      if (imagePreview && imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  // Handle Photo selection from live camera or file input and trigger AI auto-fill
+  const processPhotoAndAutoFill = async (file) => {
+    if (!file) return;
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
+    setAiNotice("");
+    setError("");
+
+    setAnalyzingImage(true);
+    try {
+      const res = await analyzeItemImage(file);
+      if (res?.success && res.data) {
+        const item = res.data;
+        setForm((prev) => ({
+          ...prev,
+          name: item.itemName || prev.name,
+          category: item.category || prev.category,
+          desc: item.description || prev.desc,
+          location: item.suggestedLocation ? (prev.location || item.suggestedLocation) : prev.location,
+          date: prev.date || new Date().toISOString().split("T")[0],
+          time: prev.time || new Date().toTimeString().slice(0, 5),
+        }));
+
+        if (res.aiPowered) {
+          setAiNotice("✨ Photo successfully analyzed with AI! Report details have been pre-filled below. You can modify any field before clicking Submit.");
+        } else {
+          setAiNotice("📷 Photo attached! Review and edit the report details below before clicking Submit.");
+        }
+      }
+    } catch (err) {
+      console.warn("AI analysis error:", err);
+      setAiNotice("📷 Photo attached! Please review and fill in any additional details below.");
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
+  const handleCameraCapture = (file) => {
+    setShowCamera(false);
+    processPhotoAndAutoFill(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processPhotoAndAutoFill(file);
+    }
+  };
+
+  const removePhoto = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setAiNotice("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -735,73 +978,259 @@ function ReportForm({ t, mode }) {
         <CheckCircle2 className="mx-auto text-emerald-600 mb-4" size={40} />
         <h2 className="text-xl font-bold mb-2">Report submitted</h2>
         <p className={`text-sm ${t.textMuted} mb-6`}>Report ID <span className="font-mono">LF-{reportId}</span> has been created. You'll be notified of any updates.</p>
-        <button onClick={() => { setSubmitted(false); setForm({ name: "", category: CATEGORIES[0], desc: "", date: "", time: "", location: "", contact: "", notes: "" }); setImageFile(null); }} className="bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg px-5 py-2.5">Submit another</button>
+        <button onClick={() => { setSubmitted(false); setForm({ name: "", category: CATEGORIES[0], desc: "", date: new Date().toISOString().split("T")[0], time: new Date().toTimeString().slice(0, 5), location: "", contact: "", notes: "" }); setImageFile(null); setImagePreview(null); setAiNotice(""); }} className="bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg px-5 py-2.5">Submit another</button>
       </div>
     );
   }
 
   return (
     <div>
-      <PageHeader t={t} title={isLost ? "Report Lost Item" : "Report Found Item"}
-        subtitle={isLost ? "Give as much detail as possible to help identify your item." : "Thank you for helping a fellow MITS member — fill in what you found."} />
-      <form onSubmit={handleSubmit} className={`rounded-xl border ${t.border} ${t.cardBg} p-6 max-w-2xl space-y-4`}>
-        {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</div>}
-        <div>
-          <label className="text-sm font-medium">Item Name</label>
-          <input required value={form.name} onChange={set("name")} placeholder="e.g. Black Dell Laptop" className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+      <PageHeader
+        t={t}
+        title={isLost ? "Report Lost Item" : "Report Found Item"}
+        subtitle={isLost ? "Take a photo or upload an image to auto-fill the report with AI, make edits if needed, then submit." : "Take a photo or upload what you found — AI will auto-fill the details for you to verify and submit."}
+      />
+
+      {/* Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraCapture}
+        t={t}
+      />
+
+      {/* AI Camera Auto-Fill Hero Banner */}
+      <div className={`max-w-2xl mb-6 p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 relative overflow-hidden backdrop-blur-sm shadow-md`}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/30">
+              <Sparkles size={22} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm sm:text-base">AI Camera Auto-Fill</span>
+                <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                  Smart Vision
+                </span>
+              </div>
+              <p className={`text-xs ${t.textMuted} mt-0.5`}>
+                Photo camera se lijiye ya upload kijiye — report apne aap fill ho jayegi! Aap changes karke submit kar sakte hain.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setShowCamera(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-md shadow-indigo-600/25 transition-all"
+            >
+              <Camera size={15} /> Take Photo
+            </button>
+            <label className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 border ${t.border} bg-white/60 dark:bg-slate-800/60 hover:bg-indigo-500/10 active:scale-95 text-xs font-semibold px-4 py-2.5 rounded-xl cursor-pointer transition-all shadow-xs`}>
+              <Upload size={15} className="text-indigo-500" /> Upload Image
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            </label>
+          </div>
         </div>
+
+        {/* AI Scanning Progress State */}
+        {analyzingImage && (
+          <div className="mt-4 pt-3.5 border-t border-indigo-500/20 flex items-center gap-3 animate-pulse">
+            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+            <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              AI photo scan kar raha hai aur details auto-fill kar raha hai... Kripya 1-2 second intezar karein.
+            </div>
+          </div>
+        )}
+
+        {/* AI Auto-fill Success Notice */}
+        {aiNotice && !analyzingImage && (
+          <div className="mt-4 pt-3.5 border-t border-indigo-500/20 flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 size={16} className="shrink-0 mt-0.5 text-emerald-500" />
+            <span>{aiNotice}</span>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit} className={`rounded-2xl border ${t.border} ${t.cardBg} p-6 max-w-2xl space-y-4 shadow-sm`}>
+        {error && <div className="text-sm text-rose-500 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3.5 py-2.5">{error}</div>}
+
+        {/* Photo Preview Card if attached */}
+        {imagePreview && (
+          <div className={`p-3.5 rounded-xl border ${t.border} bg-slate-500/5 flex items-center justify-between gap-4`}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700 bg-black shrink-0 relative">
+                <img src={imagePreview} alt="Captured preview" className="w-full h-full object-cover" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold truncate">{imageFile?.name || "camera_photo.jpg"}</div>
+                <div className={`text-[11px] ${t.textMuted} mt-0.5`}>
+                  {(imageFile?.size ? `${Math.round(imageFile.size / 1024)} KB · ` : "")}Photo ready for report
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className={`text-xs px-2.5 py-1.5 rounded-lg border ${t.border} ${t.hover} font-medium flex items-center gap-1.5`}
+              >
+                <Camera size={13} /> Retake
+              </button>
+              <button
+                type="button"
+                onClick={removePhoto}
+                className="text-xs px-2.5 py-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 font-medium flex items-center gap-1.5"
+              >
+                <Trash2 size={13} /> Remove
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="text-sm font-medium flex items-center justify-between">
+            <span>Item Name *</span>
+            {form.name && <span className="text-[11px] text-indigo-500 font-semibold">Editable</span>}
+          </label>
+          <input
+            required
+            value={form.name}
+            onChange={set("name")}
+            placeholder="e.g. Black Dell Laptop Charger"
+            className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input} focus:ring-2 focus:ring-indigo-500/20`}
+          />
+        </div>
+
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
-            <label className="text-sm font-medium">Category</label>
-            <select value={form.category} onChange={set("category")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`}>
+            <label className="text-sm font-medium">Category *</label>
+            <select
+              value={form.category}
+              onChange={set("category")}
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium ${t.input}`}
+            >
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
           <div>
             <label className="text-sm font-medium">{isLost ? "Date Lost *" : "Date Found *"}</label>
-            <input required type="date" value={form.date} onChange={set("date")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <input
+              required
+              type="date"
+              value={form.date}
+              onChange={set("date")}
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input}`}
+            />
           </div>
           <div>
             <label className="text-sm font-medium">Approx. Time</label>
-            <input type="time" value={form.time || ""} onChange={set("time")} className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <input
+              type="time"
+              value={form.time || ""}
+              onChange={set("time")}
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input}`}
+            />
           </div>
         </div>
+
         <div>
-          <label className="text-sm font-medium">Description</label>
-          <textarea required value={form.desc} onChange={set("desc")} rows={3} placeholder="Color, brand, distinguishing marks..." className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+          <label className="text-sm font-medium flex items-center justify-between">
+            <span>Description *</span>
+            <span className="text-[11px] text-muted">Brand, color, markings</span>
+          </label>
+          <textarea
+            required
+            value={form.desc}
+            onChange={set("desc")}
+            rows={3}
+            placeholder="Color, brand, distinguishing marks, condition..."
+            className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input} focus:ring-2 focus:ring-indigo-500/20`}
+          />
         </div>
+
         <div>
-          <label className="text-sm font-medium">{isLost ? "Location Lost" : "Found Location"}</label>
+          <label className="text-sm font-medium">{isLost ? "Location Lost *" : "Found Location *"}</label>
           <input
             required
             type="text"
             value={form.location}
             onChange={set("location")}
-            placeholder="e.g. Library, Hostel H2, Block A near Room 204"
-            className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`}
+            placeholder="e.g. Library 2nd Floor, SAC Computer Lab, Hostel H2"
+            className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input}`}
           />
         </div>
+
         {isLost ? (
           <div>
-            <label className="text-sm font-medium">Contact Information</label>
-            <input required value={form.contact} onChange={set("contact")} placeholder="Phone or MITS email" className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <label className="text-sm font-medium">Contact Information *</label>
+            <input
+              required
+              value={form.contact}
+              onChange={set("contact")}
+              placeholder="Mobile number or MITS email ID"
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input}`}
+            />
           </div>
         ) : (
           <div>
             <label className="text-sm font-medium">Additional Notes</label>
-            <textarea value={form.notes} onChange={set("notes")} rows={2} placeholder="Where you handed it in, condition, etc." className={`w-full mt-1 rounded-lg border px-3 py-2.5 text-sm ${t.input}`} />
+            <textarea
+              value={form.notes}
+              onChange={set("notes")}
+              rows={2}
+              placeholder="Handed in at Security Office, item condition, etc."
+              className={`w-full mt-1.5 rounded-xl border px-3.5 py-2.5 text-sm ${t.input}`}
+            />
           </div>
         )}
-        <div>
-          <label className="text-sm font-medium">{isLost ? "Optional Image Upload" : "Image Upload"}</label>
-          <label className={`mt-1 block rounded-lg border-2 border-dashed ${t.border} p-6 text-center ${t.textMuted} text-sm cursor-pointer hover:border-indigo-500`}>
-            {imageFile ? imageFile.name : "Click to browse an image (stored securely via Cloudinary)"}
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files[0] || null)} />
-          </label>
+
+        {/* Regular Image upload box (if no photo chosen yet) */}
+        {!imagePreview && (
+          <div>
+            <label className="text-sm font-medium flex items-center justify-between">
+              <span>{isLost ? "Optional Photo" : "Photo of Item *"}</span>
+              <span className="text-[11px] text-indigo-500">Auto-fills report with AI</span>
+            </label>
+            <div className="mt-1.5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                className={`flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed ${t.border} ${t.hover} transition-all group`}
+              >
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Camera size={20} />
+                </div>
+                <span className="text-xs font-semibold">Take Camera Photo</span>
+                <span className={`text-[10px] ${t.textMuted} mt-0.5`}>Auto-fills with AI</span>
+              </button>
+
+              <label
+                className={`flex flex-col items-center justify-center p-5 rounded-xl border-2 border-dashed ${t.border} ${t.hover} transition-all cursor-pointer group`}
+              >
+                <div className="w-10 h-10 rounded-full bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Upload size={20} />
+                </div>
+                <span className="text-xs font-semibold">Upload from Device</span>
+                <span className={`text-[10px] ${t.textMuted} mt-0.5`}>PNG, JPG, WEBP</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+              </label>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={submitting || analyzingImage}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold rounded-xl py-3.5 shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {submitting ? "Submitting Report..." : `Submit ${isLost ? "Lost" : "Found"} Report`}
+          </button>
+          <p className={`text-center text-[11px] ${t.textMuted} mt-2`}>
+            Aap upar bhari hui koi bhi detail badal sakte hain, phir hi Submit karein.
+          </p>
         </div>
-        <button type="submit" disabled={submitting} className="w-full bg-indigo-700 hover:bg-indigo-800 text-white font-semibold rounded-lg py-2.5 disabled:opacity-60">
-          {submitting ? "Submitting..." : `Submit ${isLost ? "Lost" : "Found"} Report`}
-        </button>
       </form>
     </div>
   );
@@ -2047,37 +2476,72 @@ function AdminAnalytics({ t, dark }) {
 }
 
 // ---------- Developers ----------
-function DevelopersPage({ t }) {
+function DevelopersPage({ t, dark, setDark, goto }) {
   return (
-    <div>
-      <PageHeader t={t} title="Developers" subtitle="The team behind the MITS Lost & Found Portal" />
-      <div className="grid sm:grid-cols-2 gap-6 mb-8">
-        {DEVELOPERS.map((d) => (
-          <div key={d.name} className={`rounded-xl border ${t.border} ${t.cardBg} p-6 text-center`}>
-            <div className="w-20 h-20 mx-auto rounded-full bg-indigo-700 text-white flex items-center justify-center text-2xl font-bold mb-4">{d.initials}</div>
-            <h3 className="font-semibold text-lg">{d.name}</h3>
-            <p className={`text-sm ${t.textMuted}`}>{d.role}</p>
-            <p className={`text-xs ${t.textMuted} mb-4 flex items-center justify-center gap-1`}><Building2 size={12} /> {d.college}</p>
-            <div className="flex justify-center gap-3">
-              <a href={d.linkedin} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Linkedin size={16} /></a>
-              <a href={d.github} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Github size={16} /></a>
-              <a href={`mailto:${d.email}`} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Mail size={16} /></a>
+    <div className={`min-h-screen ${t.bg} ${t.text}`}>
+      {/* Standalone Header */}
+      <header className={`border-b ${t.border} ${t.bgAlt}`}>
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
+          <button onClick={() => goto && goto("login")} className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-white p-1 shrink-0 overflow-hidden">
+              <img src="/logo.png" alt="MITS logo" className="w-full h-full object-contain" />
             </div>
+            <div className="text-left">
+              <div className="font-bold leading-tight">MITS L&F</div>
+              <div className={`text-xs ${t.textMuted} leading-tight`}>MITS Gwalior</div>
+            </div>
+          </button>
+          <div className="flex items-center gap-6">
+            <button onClick={() => goto && goto("login")} className={`text-sm font-medium ${t.textMuted} hover:text-indigo-500 transition-colors`}>Sign In</button>
+            {setDark && <button onClick={() => setDark(!dark)} className={`p-2 rounded-lg ${t.hover}`}>{dark ? <Sun size={18} /> : <Moon size={18} />}</button>}
           </div>
-        ))}
-      </div>
-      <div className={`rounded-xl border ${t.border} ${t.cardBg} p-6`}>
-        <h3 className="font-semibold mb-2">Project Vision</h3>
-        <p className={`text-sm ${t.textMuted} mb-4`}>To make sure no MITS student, faculty, or staff member loses a valuable item to campus chaos again — by giving the community a fast, secure, and transparent way to report and recover belongings.</p>
-        <h3 className="font-semibold mb-2">Mission Statement</h3>
-        <p className={`text-sm ${t.textMuted} mb-4`}>Built by students, for students — a trustworthy digital layer over campus security, connecting the person who lost something with the person who found it.</p>
-        <h3 className="font-semibold mb-2">Technology Stack</h3>
-        <div className="flex flex-wrap gap-2">
-          {["React.js", "Tailwind CSS", "Node.js", "Express.js", "MongoDB Atlas", "JWT Auth", "Google OAuth", "Cloudinary"].map((tech) => (
-            <span key={tech} className={`text-xs font-medium px-3 py-1.5 rounded-full border ${t.border}`}>{tech}</span>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="max-w-4xl mx-auto px-6 lg:px-10 py-16">
+        <div className="text-center mb-12">
+          <div className="inline-block text-xs font-bold tracking-wider uppercase text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-full mb-4">Meet the Team</div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">Developers</h1>
+          <p className={`text-base ${t.textMuted}`}>The team behind the MITS Lost &amp; Found Portal</p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-6 mb-8">
+          {DEVELOPERS.map((d) => (
+            <div key={d.name} className={`rounded-xl border ${t.border} ${t.cardBg} p-6 text-center`}>
+              <div className="w-20 h-20 mx-auto rounded-full bg-indigo-700 text-white flex items-center justify-center text-2xl font-bold mb-4">{d.initials}</div>
+              <h3 className="font-semibold text-lg">{d.name}</h3>
+              <p className={`text-sm ${t.textMuted}`}>{d.role}</p>
+              <p className={`text-xs ${t.textMuted} mb-4 flex items-center justify-center gap-1`}><Building2 size={12} /> {d.college}</p>
+              <div className="flex justify-center gap-3">
+                <a href={d.linkedin} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Linkedin size={16} /></a>
+                <a href={d.github} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Github size={16} /></a>
+                <a href={`mailto:${d.email}`} className={`p-2 rounded-lg border ${t.border} ${t.hover}`}><Mail size={16} /></a>
+              </div>
+            </div>
           ))}
         </div>
+
+        <div className={`rounded-xl border ${t.border} ${t.cardBg} p-6`}>
+          <h3 className="font-semibold mb-2">Project Vision</h3>
+          <p className={`text-sm ${t.textMuted} mb-4`}>To make sure no MITS student, faculty, or staff member loses a valuable item to campus chaos again — by giving the community a fast, secure, and transparent way to report and recover belongings.</p>
+          <h3 className="font-semibold mb-2">Mission Statement</h3>
+          <p className={`text-sm ${t.textMuted} mb-4`}>Built by students, for students — a trustworthy digital layer over campus security, connecting the person who lost something with the person who found it.</p>
+          <h3 className="font-semibold mb-2">Technology Stack</h3>
+          <div className="flex flex-wrap gap-2">
+            {["React.js", "Tailwind CSS", "Node.js", "Express.js", "MongoDB Atlas", "JWT Auth", "Google OAuth", "Cloudinary"].map((tech) => (
+              <span key={tech} className={`text-xs font-medium px-3 py-1.5 rounded-full border ${t.border}`}>{tech}</span>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className={`border-t ${t.border} ${t.bgAlt} mt-10`}>
+        <div className={`max-w-7xl mx-auto px-6 lg:px-10 py-6 text-center text-xs ${t.textMuted}`}>
+          © 2026 MITS Gwalior · Developed by <span className="font-medium">Bhavesh Bhadnekar</span> &amp; <span className="font-medium">Kanishk Shakya</span>
+        </div>
+      </footer>
     </div>
   );
 }
@@ -2210,14 +2674,12 @@ export default function App() {
     return <div className="min-h-screen flex items-center justify-center text-slate-500 text-sm">Loading...</div>;
   }
 
+  // Developers page always standalone — no sidebar/shell
+  if (page === "developers") {
+    return <DevelopersPage t={t} dark={dark} setDark={setDark} goto={goto} />;
+  }
+
   if (!role) {
-    if (page === "developers") {
-      return (
-        <Shell t={t} dark={dark} setDark={setDark} page={page} setPage={setPage} role="student" logout={() => setPage("landing")} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}>
-          <DevelopersPage t={t} />
-        </Shell>
-      );
-    }
     if (page === "landing") return <Landing t={t} dark={dark} goto={goto} />;
     return <Login t={t} dark={dark} setDark={setDark} goto={goto} login={login} />;
   }
@@ -2232,7 +2694,7 @@ export default function App() {
     notifications: <NotificationsPage t={t} />,
     profile: <ProfilePage t={t} user={user} />,
     settings: <SettingsPage t={t} dark={dark} setDark={setDark} />,
-    developers: <DevelopersPage t={t} />,
+    developers: <DevelopersPage t={t} dark={dark} setDark={setDark} goto={goto} />,
     admin: <AdminDashboard t={t} dark={dark} />,
     adminUsers: <AdminUsers t={t} />,
     adminClaims: <AdminClaims t={t} />,

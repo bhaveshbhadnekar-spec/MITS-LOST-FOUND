@@ -4,12 +4,13 @@ const { protect, authorize } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { upload } = require("../config/cloudinary");
 const ctrl = require("../controllers/lostItemController");
+const cache = require("../utils/cache");
 
 const router = express.Router();
 
-router.get("/", protect, ctrl.getLostItems);
+router.get("/", protect, cache(30), ctrl.getLostItems);
 router.get("/mine", protect, ctrl.getMyLostItems);
-router.get("/:id", protect, ctrl.getLostItem);
+router.get("/:id", protect, cache(30), ctrl.getLostItem);
 
 router.post(
   "/",

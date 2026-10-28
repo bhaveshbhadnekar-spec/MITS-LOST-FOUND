@@ -20,7 +20,10 @@ exports.register = async (req, res, next) => {
       return res.status(409).json({ success: false, message: "An account with this email already exists." });
     }
 
-    const user = await User.create({ name, email, password, department });
+    // Auto-assign role based on email domain / address
+    const role = User.getDefaultRole(email);
+
+    const user = await User.create({ name, email, password, department, role });
     // In production: send a verification email here before setting isEmailVerified.
     sendTokenResponse(user, 201, res);
   } catch (err) {
@@ -42,6 +45,13 @@ exports.login = async (req, res, next) => {
     }
     if (user.isSuspended) {
       return res.status(403).json({ success: false, message: "This account has been suspended. Contact the Security Office." });
+    }
+
+    // Auto-correct role on login (handles accounts created before the role rules were set)
+    const correctRole = User.getDefaultRole(user.email);
+    if (user.role !== correctRole && (correctRole === "admin" || correctRole === "faculty")) {
+      user.role = correctRole;
+      await user.save({ validateBeforeSave: false });
     }
 
     sendTokenResponse(user, 200, res);
@@ -76,6 +86,9 @@ exports.googleLogin = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Please sign in with your official MITS Google account." });
     }
 
+    // Determine role for this email
+    const role = User.getDefaultRole(payload.email);
+
     // Find existing user or create a new one
     let user = await User.findOne({ email: payload.email.toLowerCase() });
     if (!user) {
@@ -85,7 +98,13 @@ exports.googleLogin = async (req, res, next) => {
         googleId: payload.sub,
         profileImage: payload.picture,
         isEmailVerified: payload.email_verified,
+        role,
       });
+    } else if (user.role !== role && role === "admin") {
+      // Ensure dixitmits@mitsgwalior.in always has admin privileges,
+      // even if the account was created before this rule was in place.
+      user.role = role;
+      await user.save({ validateBeforeSave: false });
     }
 
     // Issue JWT and cookie

@@ -46,11 +46,29 @@ userSchema.methods.comparePassword = async function (candidate) {
   return bcrypt.compare(candidate, this.password);
 };
 
-// Enforce MITS-only email domain at the schema level as a defense-in-depth
+// Enforce MITS-only email domains at the schema level as a defense-in-depth
 // check (also validated in the auth controller before this point).
+// Allowed domains:
+//   @mitsgwl.ac.in  -> students
+//   @mitsgwalior.in -> faculty / admin staff
 userSchema.statics.isAllowedDomain = function (email) {
-  const domain = process.env.ALLOWED_EMAIL_DOMAIN || "mitsgwl.ac.in";
-  return email.toLowerCase().endsWith(`@${domain}`);
+  const lower = email.toLowerCase();
+  return (
+    lower.endsWith("@mitsgwl.ac.in") ||
+    lower.endsWith("@mitsgwalior.in")
+  );
+};
+
+// Determine the default role for a new user based on their email.
+// - Faculty admin override: dixitmits@mitsgwalior.in -> "admin"
+// - Other faculty domain (@mitsgwalior.in)           -> "faculty"
+// - Student domain (@mitsgwl.ac.in)                  -> "student"
+userSchema.statics.getDefaultRole = function (email) {
+  const lower = email.toLowerCase();
+  // Special admin override for the faculty admin email
+  if (lower === "dixitmits@mitsgwalior.in") return "admin";
+  if (lower.endsWith("@mitsgwalior.in")) return "faculty";
+  return "student";
 };
 
 module.exports = mongoose.model("User", userSchema);

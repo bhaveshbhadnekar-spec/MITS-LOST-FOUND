@@ -8,6 +8,7 @@ const cookieParser = require("cookie-parser");
 const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
 
+const cacheMiddleware = require('./utils/cache');
 const connectDB = require("./config/db");
 const errorHandler = require("./middleware/errorHandler");
 const { apiLimiter } = require("./middleware/rateLimiters");
@@ -21,6 +22,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const matchRoutes = require("./routes/matchRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 connectDB();
 
@@ -53,6 +55,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/chats", chatRoutes);
+app.use("/api/ai", aiRoutes);
 
 // 404 handler for unmatched API routes
 app.use("/api", (req, res) => {
